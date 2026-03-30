@@ -23,6 +23,21 @@
 </head>
 <body>
 <div id="root"></div>
+
+<script>
+// Debug: check CDN globals loaded
+window.addEventListener('load', function() {
+  var missing = [];
+  if (!window.React) missing.push('React');
+  if (!window.ReactDOM) missing.push('ReactDOM');
+  if (!window.Recharts) missing.push('Recharts');
+  var lucideGlobal = window.lucideReact || window.LucideReact || window.lucide;
+  if (!lucideGlobal) missing.push('lucide-react');
+  if (missing.length > 0) {
+    document.getElementById('root').innerHTML = '<div style="color:red;padding:40px;font-family:monospace">Missing globals: ' + missing.join(', ') + '</div>';
+  }
+});
+</script>
 <script type="text/babel">
 
 var useState = React.useState;
@@ -40,28 +55,29 @@ var Tooltip = Recharts.Tooltip;
 var ResponsiveContainer = Recharts.ResponsiveContainer;
 var CartesianGrid = Recharts.CartesianGrid;
 
-var LayoutDashboard = lucideReact.LayoutDashboard;
-var ListChecks = lucideReact.ListChecks;
-var PlusCircle = lucideReact.PlusCircle;
-var CheckCircle2 = lucideReact.CheckCircle2;
-var DollarSign = lucideReact.DollarSign;
-var TrendingUp = lucideReact.TrendingUp;
-var Clock = lucideReact.Clock;
-var FileText = lucideReact.FileText;
-var User = lucideReact.User;
-var Calendar = lucideReact.Calendar;
-var Tag = lucideReact.Tag;
-var MapPin = lucideReact.MapPin;
-var X = lucideReact.X;
-var Search = lucideReact.Search;
-var Shield = lucideReact.Shield;
-var BookOpen = lucideReact.BookOpen;
-var AlertTriangle = lucideReact.AlertTriangle;
-var Download = lucideReact.Download;
-var RefreshCw = lucideReact.RefreshCw;
-var Database = lucideReact.Database;
-var Activity = lucideReact.Activity;
-var MessageSquare = lucideReact.MessageSquare;
+var _lucide = window.lucideReact || window.LucideReact || window.lucide || {};
+var LayoutDashboard = _lucide.LayoutDashboard;
+var ListChecks = _lucide.ListChecks;
+var PlusCircle = _lucide.PlusCircle;
+var CheckCircle2 = _lucide.CheckCircle2;
+var DollarSign = _lucide.DollarSign;
+var TrendingUp = _lucide.TrendingUp;
+var Clock = _lucide.Clock;
+var FileText = _lucide.FileText;
+var User = _lucide.User;
+var Calendar = _lucide.Calendar;
+var Tag = _lucide.Tag;
+var MapPin = _lucide.MapPin;
+var X = _lucide.X;
+var Search = _lucide.Search;
+var Shield = _lucide.Shield;
+var BookOpen = _lucide.BookOpen;
+var AlertTriangle = _lucide.AlertTriangle;
+var Download = _lucide.Download;
+var RefreshCw = _lucide.RefreshCw;
+var Database = _lucide.Database;
+var Activity = _lucide.Activity;
+var MessageSquare = _lucide.MessageSquare;
 
 const T = {
   bg: "#1C2333", bg2: "#232D40", bg3: "#2A3650", bdr: "#3A4A62",
