@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CapEx Manager — Apex Geotech Solutions</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1C2333; overflow: hidden; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #1C2333; }
+  ::-webkit-scrollbar-thumb { background: #3A4A62; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4A5A72; }
+  select option { background: #232D40; color: #D8E4F0; }
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script crossorigin src="https://unpkg.com/lucide-react@0.383.0/dist/umd/lucide-react.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+var useState = React.useState;
+var useEffect = React.useEffect;
+var useCallback = React.useCallback;
+
+var PieChart = Recharts.PieChart;
+var Pie = Recharts.Pie;
+var Cell = Recharts.Cell;
+var BarChart = Recharts.BarChart;
+var Bar = Recharts.Bar;
+var XAxis = Recharts.XAxis;
+var YAxis = Recharts.YAxis;
+var Tooltip = Recharts.Tooltip;
+var ResponsiveContainer = Recharts.ResponsiveContainer;
+var CartesianGrid = Recharts.CartesianGrid;
+
+var LayoutDashboard = lucideReact.LayoutDashboard;
+var ListChecks = lucideReact.ListChecks;
+var PlusCircle = lucideReact.PlusCircle;
+var CheckCircle2 = lucideReact.CheckCircle2;
+var DollarSign = lucideReact.DollarSign;
+var TrendingUp = lucideReact.TrendingUp;
+var Clock = lucideReact.Clock;
+var FileText = lucideReact.FileText;
+var User = lucideReact.User;
+var Calendar = lucideReact.Calendar;
+var Tag = lucideReact.Tag;
+var MapPin = lucideReact.MapPin;
+var X = lucideReact.X;
+var Search = lucideReact.Search;
+var Shield = lucideReact.Shield;
+var BookOpen = lucideReact.BookOpen;
+var AlertTriangle = lucideReact.AlertTriangle;
+var Download = lucideReact.Download;
+var RefreshCw = lucideReact.RefreshCw;
+var Database = lucideReact.Database;
+var Activity = lucideReact.Activity;
+var MessageSquare = lucideReact.MessageSquare;
+
+const T = {
+  bg: "#1C2333", bg2: "#232D40", bg3: "#2A3650", bdr: "#3A4A62",
+  tx: "#D8E4F0", tx2: "#B8C8D8", dim: "#9DAFC4",
+  amb: "#F0B429", grn: "#34D399", red: "#F87171",
+  blu: "#60A5FA", pur: "#A78BFA", org: "#FB923C",
+  ff: "'IBM Plex Mono', monospace"
+};
+
+const SC = {
+  "Draft": { c: T.dim, b: T.bg3 },
+  "Pending VP IT": { c: T.blu, b: "#1E2A40" },
+  "Pending VP Transformation": { c: T.pur, b: "#2E2540" },
+  "Pending CFO": { c: T.org, b: "#3A2A1E" },
+  "Pending President": { c: T.amb, b: "#3D3220" },
+  "Pending CEO": { c: T.red, b: "#3A2020" },
+  "Pending Board": { c: T.pur, b: "#2E2540" },
+  "Approved": { c: T.grn, b: "#1A3330" },
+  "In Progress": { c: T.blu, b: "#1E2A40" },
+  "Complete": { c: "#6EE7B7", b: "#163028" },
+  "Rejected": { c: T.red, b: "#3A2020" },
+  "On Hold": { c: T.dim, b: T.bg3 }
+};
+
+const CC = [T.blu, T.grn, T.amb, T.pur, T.red, T.org, "#6EE7B7", "#FDA4AF"];
+const CATS = ["Production Equipment","Tooling","Facility","IT Infrastructure","IT Equipment","Physical Security","Software","Maintenance"];
+const SITES = ["Brookville","Wilkes-Barre","Kilgore","Polk","Multi-Site","All Sites"];
+const ENTITIES = ["OCI","DrillTools","GMS","Apex Corporate"];
+const IT_CATS = ["IT Infrastructure","IT Equipment","Software"];
+const OPS_CATS = ["Production Equipment","Tooling","Maintenance"];
+
+const fmt = (n) => {
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K";
+  return "$" + n;
+};
+const fF = (n) => "$" + n.toLocaleString();
+const now = () => new Date().toISOString();
+const getRoute = (c) => IT_CATS.includes(c) ? "it" : OPS_CATS.includes(c) ? "ops" : "cross";
+const routeLabel = (r) => r === "it" ? "IT Route" : r === "ops" ? "Ops Route" : "Cross-Functional";
+const routeColor = (r) => r === "it" ? T.blu : r === "ops" ? T.pur : T.amb;
+const tipStyle = { fontSize: 11, borderRadius: 6, border: "1px solid " + T.bdr, background: T.bg2, fontFamily: T.ff, color: T.tx };
+
+function getNextStatus(cat, cur, amt, budgeted) {
+  var r = getRoute(cat);
+  // DoA Matrix thresholds determine which approvers are needed
+  // Budgeted: Plant Mgr <$50K, VP Ops <$100K, CFO consulted >$100K, CEO >$100K
+  // Unbudgeted: Plant Mgr <$5K, VP Ops <$10K, CFO consulted >$10K, CEO >$10K, Gemspring >$20K
+  var needsCEO = budgeted ? (amt > 100000) : (amt > 10000);
+  var needsBoard = !budgeted && amt > 20000;
+
+  var itChain = ["Draft","Pending VP IT","Pending CFO","Pending President","Pending CEO","Approved"];
+  var opsChain = ["Draft","Pending VP Transformation","Pending CFO","Pending President","Pending CEO","Approved"];
+  var crossChain = ["Draft","Pending VP IT","Pending VP Transformation","Pending CFO","Pending President","Pending CEO","Approved"];
+
+  if (needsBoard) {
+    itChain.splice(itChain.length - 1, 0, "Pending Board");
+    opsChain.splice(opsChain.length - 1, 0, "Pending Board");
+    crossChain.splice(crossChain.length - 1, 0, "Pending Board");
+  }
+
+  var chain = r === "it" ? itChain : r === "ops" ? opsChain : crossChain;
+  var idx = chain.indexOf(cur);
+  if (idx >= 0 && idx < chain.length - 1) return chain[idx + 1];
+  return "Approved";
+}
+
+function getChainSteps(cat, st, amt, budgeted) {
+  var r = getRoute(cat);
+  var needsBoard = !budgeted && amt > 20000;
+  var base = [{ r: "Project Manager", nm: "", d: true }];
+  if (r === "it" || r === "cross") {
+    base.push({ r: "VP of IT", nm: "Brad Selby", d: !["Draft","Pending VP IT"].includes(st) });
+  }
+  if (r === "ops" || r === "cross") {
+    base.push({ r: "VP of Transformation", nm: "Brad Sostack", d: !["Draft","Pending VP IT","Pending VP Transformation"].includes(st) });
+  }
+  var cfoNote = budgeted ? "Consulted > $100K" : "Consulted > $10K";
+  base.push({ r: "CFO", nm: "Tom Naddy - " + cfoNote, d: ["Pending President","Pending CEO","Pending Board","Approved","In Progress","Complete"].includes(st) });
+  base.push({ r: "President", nm: "Gene Swindell", d: ["Pending CEO","Pending Board","Approved","In Progress","Complete"].includes(st) });
+  var ceoNote = budgeted ? "Approves > $100K" : "Approves > $10K";
+  base.push({ r: "CEO", nm: "Michael J. Puleo - " + ceoNote, d: ["Pending Board","Approved","In Progress","Complete"].includes(st) });
+  if (needsBoard) {
+    base.push({ r: "Board / Gemspring", nm: "Required: unbudgeted > $20K", d: st === "Approved" || st === "Complete" });
+  }
+  return base;
+}
+
+var SEED = [
+  {id:"2026-001",n:"HSPC 2 & 3",e:"OCI",s:"Polk",c:"Production Equipment",b:313000,sp:241000,st:"Approved",o:"Dane Morgan",q:[241000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-002",n:"Tooling Capacity - BV",e:"OCI",s:"Brookville",c:"Tooling",b:220000,sp:0,st:"Approved",o:"Brandon Henry",q:[0,220000,0,0],t:"Q2",bg:true},
+  {id:"2026-003",n:"CNC Purchase",e:"OCI",s:"Brookville",c:"Production Equipment",b:150000,sp:0,st:"Approved",o:"Brandon Henry",q:[0,150000,0,0],t:"Q2",bg:true},
+  {id:"2026-004",n:"Sylvania St Consolidation",e:"OCI",s:"Brookville",c:"Facility",b:120000,sp:0,st:"Approved",o:"Tyler Kishbaugh",q:[120000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-005",n:"Plasma Table Nesting SW",e:"OCI",s:"Kilgore",c:"Software",b:85404,sp:0,st:"Approved",o:"Alec Pollard",q:[85404,0,0,0],t:"Q1",bg:true},
+  {id:"2026-006",n:"Saw Bay Relo",e:"OCI",s:"Brookville",c:"Facility",b:22000,sp:22000,st:"Complete",o:"Brandon Henry",q:[22000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-007",n:"Manual CNC Replacement",e:"OCI",s:"Brookville",c:"Production Equipment",b:250000,sp:0,st:"Approved",o:"Brandon Henry",q:[0,0,250000,0],t:"Q3",bg:true},
+  {id:"2026-008",n:"Tooling Capacity - WB",e:"OCI",s:"Wilkes-Barre",c:"Tooling",b:150000,sp:0,st:"Approved",o:"Russell Finch",q:[150000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-009",n:"Threaded Bar Cross Selling",e:"OCI",s:"Brookville",c:"Production Equipment",b:780000,sp:0,st:"Approved",o:"Dane Morgan",q:[0,520000,260000,0],t:"Q2-Q3",bg:true},
+  {id:"2026-010",n:"Large Diameter Tools",e:"OCI",s:"Brookville",c:"Tooling",b:250000,sp:0,st:"Approved",o:"Dane Morgan",q:[0,250000,0,0],t:"Q2",bg:true},
+  {id:"2026-011",n:"Move 4 CNCs BV to WB",e:"OCI",s:"Wilkes-Barre",c:"Facility",b:300000,sp:0,st:"Approved",o:"Russell Finch",q:[300000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-012",n:"Kelly Bar Production",e:"OCI",s:"Wilkes-Barre",c:"Production Equipment",b:500000,sp:0,st:"Approved",o:"Russell Finch",q:[0,0,500000,0],t:"Q3",bg:true},
+  {id:"2026-04a",n:"Laser Cut Pipe Cell",e:"OCI",s:"Wilkes-Barre",c:"Production Equipment",b:859000,sp:152000,st:"In Progress",o:"Russell Finch",q:[152000,607000,0,0],t:"Q1-Q2",bg:true},
+  {id:"2026-013",n:"Positioner - KG",e:"OCI",s:"Kilgore",c:"Production Equipment",b:166661,sp:0,st:"Approved",o:"Steve O",q:[0,0,0,0],t:"TBD",bg:true},
+  {id:"2026-015",n:"CNC in WB",e:"OCI",s:"Wilkes-Barre",c:"Production Equipment",b:560000,sp:0,st:"Approved",o:"Russell Finch",q:[560000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-016",n:"Concrete Pad - WB",e:"OCI",s:"Wilkes-Barre",c:"Facility",b:215000,sp:0,st:"Approved",o:"Russell Finch",q:[0,215000,0,0],t:"Q2",bg:true},
+  {id:"2026-017",n:"Office Improvement - BV",e:"OCI",s:"Brookville",c:"Facility",b:85000,sp:60000,st:"In Progress",o:"Brad Selby",q:[85000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-018",n:"Office Improvement - WB",e:"OCI",s:"Wilkes-Barre",c:"Facility",b:300000,sp:150000,st:"In Progress",o:"Brad Selby",q:[150000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-019",n:"Maintenance CapEx - BV",e:"OCI",s:"Brookville",c:"Maintenance",b:195000,sp:30000,st:"In Progress",o:"Brandon Henry",q:[30000,45000,60000,60000],t:"Q1-Q4",bg:true},
+  {id:"2026-020",n:"Kilgore IT CapEx",e:"Apex",s:"Kilgore",c:"IT Infrastructure",b:106000,sp:35000,st:"In Progress",o:"Brad Selby",q:[106000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-021",n:"Polk IT CapEx",e:"Apex",s:"Polk",c:"IT Infrastructure",b:81000,sp:21000,st:"In Progress",o:"Brad Selby",q:[81000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-022",n:"WB IT CapEx",e:"Apex",s:"Wilkes-Barre",c:"IT Infrastructure",b:91000,sp:30000,st:"In Progress",o:"Brad Selby",q:[91000,0,0,0],t:"Q1",bg:true},
+  {id:"2026-023",n:"Brookville IT CapEx",e:"Apex",s:"Brookville",c:"IT Infrastructure",b:60000,sp:20000,st:"In Progress",o:"Brad Selby",q:[60000,0,0,0],t:"Q1-Q2",bg:true},
+  {id:"2026-024",n:"Laptops / Hardware",e:"Apex",s:"All Sites",c:"IT Equipment",b:60000,sp:20000,st:"In Progress",o:"Brad Selby",q:[20000,20000,0,0],t:"Q1-Q2",bg:true},
+  {id:"2026-025",n:"Server Infrastructure",e:"Apex",s:"Multi-Site",c:"IT Infrastructure",b:110000,sp:0,st:"Pending CFO",o:"Brad Selby",q:[0,110000,0,0],t:"Q2",bg:false},
+  {id:"2026-026",n:"Salto Access Control",e:"OCI",s:"Multi-Site",c:"Physical Security",b:78000,sp:0,st:"Pending VP IT",o:"Jarvis Black",q:[0,78000,0,0],t:"Q2",bg:false},
+  {id:"2026-027",n:"Gantry Crane - KG",e:"OCI",s:"Kilgore",c:"Production Equipment",b:98443,sp:0,st:"Approved",o:"Dane Morgan",q:[0,0,98443,0],t:"Q3",bg:true},
+  {id:"2026-028",n:"BV ST50 Replacement",e:"OCI",s:"Brookville",c:"Production Equipment",b:0,sp:0,st:"Draft",o:"Brandon Henry",q:[0,0,0,0],t:"TBD",bg:false}
+];
+
+var SK = "capex-data-v3";
+
+function initData() {
+  return {
+    projects: SEED.map(function(p) { return Object.assign({}, p); }),
+    log: [{ ts: now(), action: "System initialized with 28 seed projects", user: "System" }],
+    nextNum: 29
+  };
+}
+
+function Badge({ st }) {
+  var s = SC[st] || SC.Draft;
+  return (
+    <span style={{
+      background: s.b, color: s.c, padding: "3px 10px", borderRadius: 4,
+      fontSize: 10, fontWeight: 600, letterSpacing: "0.03em",
+      whiteSpace: "nowrap", border: "1px solid " + s.c + "33"
+    }}>{st}</span>
+  );
+}
+
+function Route({ cat }) {
+  var r = getRoute(cat);
+  var col = routeColor(r);
+  return (
+    <span style={{
+      background: col + "20", color: col, padding: "2px 8px",
+      borderRadius: 3, fontSize: 9, fontWeight: 600, border: "1px solid " + col + "33"
+    }}>{routeLabel(r)}</span>
+  );
+}
+
+function MetricCard({ icon, label, value, sub }) {
+  var Icon = icon;
+  return (
+    <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 20px", flex: 1, minWidth: 180 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 10, color: T.dim, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7 }}>{label}</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: T.tx, letterSpacing: "-0.02em", lineHeight: 1 }}>{value}</div>
+          {sub && <div style={{ fontSize: 10, color: T.dim, marginTop: 5 }}>{sub}</div>}
+        </div>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: T.bg3, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid " + T.bdr }}>
+          <Icon size={15} color={T.blu} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ data }) {
+  var d = data.projects;
+  var tot = d.reduce(function(s, p) { return s + p.b; }, 0);
+  var spent = d.reduce(function(s, p) { return s + p.sp; }, 0);
+  var appr = d.filter(function(p) { return ["Approved","In Progress","Complete"].includes(p.st); });
+  var pend = d.filter(function(p) { return p.st.startsWith("Pending"); });
+
+  var byCat = {};
+  d.forEach(function(p) { byCat[p.c] = (byCat[p.c] || 0) + p.b; });
+  var catD = Object.entries(byCat).map(function(e) { return { name: e[0], value: e[1] }; }).sort(function(a, b) { return b.value - a.value; });
+
+  var bySite = {};
+  d.forEach(function(p) { bySite[p.s] = (bySite[p.s] || 0) + p.b; });
+  var siteD = Object.entries(bySite).map(function(e) { return { name: e[0], value: e[1] }; }).sort(function(a, b) { return b.value - a.value; }).slice(0, 8);
+
+  var qD = ["Q1","Q2","Q3","Q4"].map(function(name, i) {
+    return {
+      name: name,
+      budget: d.reduce(function(s, p) { return s + p.q[i]; }, 0),
+      spent: i === 0 ? d.reduce(function(s, p) { return s + Math.min(p.sp, p.q[0]); }, 0) : 0
+    };
+  });
+
+  var stC = {};
+  d.forEach(function(p) { stC[p.st] = (stC[p.st] || 0) + 1; });
+
+  return (
+    <div>
+      <div style={{ marginBottom: 22 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: 0 }}>CapEx Dashboard</h2>
+        <p style={{ fontSize: 11, color: T.dim, margin: "3px 0 0" }}>2026 Capital Expenditure — Apex Geotech Solutions</p>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+        <MetricCard icon={DollarSign} label="Total Budget" value={fmt(tot)} sub={d.length + " initiatives"} />
+        <MetricCard icon={TrendingUp} label="YTD Spent" value={fmt(spent)} sub={((spent / tot) * 100).toFixed(1) + "% utilized"} />
+        <MetricCard icon={CheckCircle2} label="Approved" value={fmt(appr.reduce(function(s, p) { return s + p.b; }, 0))} sub={appr.length + " initiatives"} />
+        <MetricCard icon={Clock} label="Pending" value={pend.length} sub={fmt(pend.reduce(function(s, p) { return s + p.b; }, 0)) + " awaiting"} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 12 }}>Quarterly Cash Flow</div>
+          <ResponsiveContainer width="100%" height={195}>
+            <BarChart data={qD} barGap={3}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.bdr} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: T.dim, fontFamily: T.ff }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: T.dim, fontFamily: T.ff }} axisLine={false} tickLine={false} tickFormatter={function(v) { return fmt(v); }} />
+              <Tooltip formatter={function(v) { return fF(v); }} contentStyle={tipStyle} />
+              <Bar dataKey="budget" fill={T.blu} radius={[3,3,0,0]} name="Budget" />
+              <Bar dataKey="spent" fill={T.grn} radius={[3,3,0,0]} name="Spent" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 12 }}>Budget by Category</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <ResponsiveContainer width="48%" height={195}>
+              <PieChart>
+                <Pie data={catD} cx="50%" cy="50%" innerRadius={48} outerRadius={74} dataKey="value" stroke="none">
+                  {catD.map(function(_, i) { return <Cell key={i} fill={CC[i % CC.length]} />; })}
+                </Pie>
+                <Tooltip formatter={function(v) { return fF(v); }} contentStyle={tipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ flex: 1 }}>
+              {catD.map(function(c, i) {
+                return (
+                  <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: CC[i % CC.length], flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, color: T.tx2, flex: 1 }}>{c.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: T.tx }}>{fmt(c.value)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 12 }}>Budget by Site</div>
+          <ResponsiveContainer width="100%" height={195}>
+            <BarChart data={siteD} layout="vertical" margin={{ left: 6 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.bdr} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 9, fill: T.dim, fontFamily: T.ff }} axisLine={false} tickLine={false} tickFormatter={function(v) { return fmt(v); }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: T.tx2, fontFamily: T.ff }} axisLine={false} tickLine={false} width={80} />
+              <Tooltip formatter={function(v) { return fF(v); }} contentStyle={tipStyle} />
+              <Bar dataKey="value" fill={T.grn} radius={[0,3,3,0]} name="Budget" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 10 }}>Pipeline Status</div>
+          {Object.entries(stC).sort(function(a, b) { return b[1] - a[1]; }).map(function(entry) {
+            var st = entry[0], cnt = entry[1];
+            var cfg = SC[st] || SC.Draft;
+            return (
+              <div key={st} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 10, color: T.tx2 }}>{st}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: T.tx }}>{cnt}</span>
+                </div>
+                <div style={{ height: 5, background: T.bg3, borderRadius: 3 }}>
+                  <div style={{ height: "100%", width: (cnt / d.length) * 100 + "%", background: cfg.c, borderRadius: 3, opacity: 0.8 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Pipeline({ data, onSel }) {
+  var [flt, setFlt] = useState("All");
+  var [q, setQ] = useState("");
+  var d = data.projects;
+  var sts = ["All"].concat(Array.from(new Set(d.map(function(p) { return p.st; }))));
+  var rows = d
+    .filter(function(p) { return flt === "All" || p.st === flt; })
+    .filter(function(p) { return !q || p.n.toLowerCase().includes(q.toLowerCase()) || p.s.toLowerCase().includes(q.toLowerCase()) || p.o.toLowerCase().includes(q.toLowerCase()); })
+    .sort(function(a, b) { return b.b - a.b; });
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: 0 }}>CapEx Pipeline</h2>
+          <p style={{ fontSize: 11, color: T.dim, margin: "3px 0 0" }}>{rows.length} of {d.length}</p>
+        </div>
+        <div style={{ position: "relative" }}>
+          <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: T.dim }} />
+          <input placeholder="Search..." value={q} onChange={function(e) { setQ(e.target.value); }}
+            style={{ padding: "6px 11px 6px 28px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 11, width: 190, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
+        {sts.map(function(s) {
+          return <button key={s} onClick={function() { setFlt(s); }} style={{ padding: "3px 11px", borderRadius: 5, border: flt === s ? "1.5px solid " + T.blu : "1px solid " + T.bdr, background: flt === s ? T.bg3 : T.bg2, color: flt === s ? T.blu : T.dim, fontSize: 10, cursor: "pointer", fontFamily: T.ff }}>{s}</button>;
+        })}
+      </div>
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: T.bg3 }}>
+              {["ID","Initiative","Site","Category","Route","Budget","Status","Owner"].map(function(h) {
+                return <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 9, fontWeight: 600, color: T.dim, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid " + T.bdr }}>{h}</th>;
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(function(p) {
+              return (
+                <tr key={p.id} onClick={function() { onSel(p); }} style={{ cursor: "pointer" }}
+                  onMouseEnter={function(e) { e.currentTarget.style.background = T.bg3; }}
+                  onMouseLeave={function(e) { e.currentTarget.style.background = "transparent"; }}>
+                  <td style={{ padding: "9px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30" }}>{p.id}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30" }}>{p.n}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30" }}>{p.s}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30" }}>{p.c}</td>
+                  <td style={{ padding: "9px 10px", borderBottom: "1px solid " + T.bdr + "30" }}><Route cat={p.c} /></td>
+                  <td style={{ padding: "9px 10px", fontSize: 10, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30" }}>{p.b > 0 ? fF(p.b) : "\u2014"}</td>
+                  <td style={{ padding: "9px 10px", borderBottom: "1px solid " + T.bdr + "30" }}><Badge st={p.st} /></td>
+                  <td style={{ padding: "9px 10px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30" }}>{p.o}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Approvals({ data, onAction }) {
+  var [cmt, setCmt] = useState({});
+  var pend = data.projects.filter(function(p) { return p.st.startsWith("Pending"); });
+
+  function act(p, a) {
+    onAction(p.id, a, cmt[p.id] || "");
+    setCmt(function(prev) { var n = Object.assign({}, prev); n[p.id] = ""; return n; });
+  }
+
+  if (pend.length === 0) {
+    return (
+      <div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>Approval Queue</h2>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: 50, textAlign: "center" }}>
+          <CheckCircle2 size={34} color={T.grn} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: T.tx, marginTop: 9 }}>All caught up</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: 0 }}>Approval Queue</h2>
+        <p style={{ fontSize: 11, color: T.dim, margin: "3px 0 0" }}>{pend.length} items awaiting</p>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {pend.map(function(p) {
+          var cfg = SC[p.st] || SC.Draft;
+          return (
+            <div key={p.id} style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "16px 20px", borderLeft: "3px solid " + cfg.c }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
+                    <span style={{ fontSize: 10, color: T.dim }}>{p.id}</span>
+                    <Badge st={p.st} />
+                    <Route cat={p.c} />
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.tx }}>{p.n}</div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 7 }}>
+                    <span style={{ fontSize: 10, color: T.dim }}>{p.s}</span>
+                    <span style={{ fontSize: 10, color: T.dim }}>{p.o}</span>
+                    <span style={{ fontSize: 10, color: T.dim }}>{p.c}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: T.tx }}>{fF(p.b)}</div>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center" }}>
+                <input placeholder="Comment..." value={cmt[p.id] || ""}
+                  onChange={function(e) { var v = e.target.value; setCmt(function(prev) { var n = Object.assign({}, prev); n[p.id] = v; return n; }); }}
+                  style={{ flex: 1, padding: "6px 11px", border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff }} />
+                <button onClick={function() { act(p, "approve"); }} style={{ padding: "6px 16px", background: T.grn, color: T.bg, border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.ff }}>Approve</button>
+                <button onClick={function() { act(p, "reject"); }} style={{ padding: "6px 16px", background: "transparent", color: T.red, border: "1px solid " + T.red + "50", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.ff }}>Reject</button>
+                <button onClick={function() { act(p, "hold"); }} style={{ padding: "6px 16px", background: "transparent", color: T.dim, border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: T.ff }}>Hold</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SubmitForm({ onSubmit }) {
+  var empty = { name: "", entity: "OCI", site: "Brookville", cat: "Production Equipment", owner: "", cost: "", quarter: "Q2 2026", justification: "", budgeted: "Budgeted", roi: "", savings: "", urgency: "Standard", risk: "" };
+  var [f, setF] = useState(Object.assign({}, empty));
+  var [done, setDone] = useState(null);
+  function up(k, v) { setF(function(prev) { var n = Object.assign({}, prev); n[k] = v; return n; }); }
+
+  var iS = { width: "100%", padding: "7px 11px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 11, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff, boxSizing: "border-box" };
+  var lS = { fontSize: 9, fontWeight: 600, color: T.dim, marginBottom: 3, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
+
+  function go() {
+    if (!f.name || !f.owner || !f.cost) return;
+    var cost = parseFloat(f.cost) || 0;
+    var qi = { "Q1 2026": 0, "Q2 2026": 1, "Q3 2026": 2, "Q4 2026": 3 }[f.quarter] || 1;
+    var qa = [0, 0, 0, 0]; qa[qi] = cost;
+    var isBudgeted = f.budgeted === "Budgeted";
+    var id = onSubmit({ n: f.name, e: f.entity, s: f.site, c: f.cat, b: cost, sp: 0, o: f.owner, q: qa, t: f.quarter.replace(" 2026", ""), bg: isBudgeted, justification: f.justification, roi: f.roi, savings: f.savings, urgency: f.urgency, risk: f.risk });
+    setDone(id);
+    setF(Object.assign({}, empty));
+  }
+
+  if (done) {
+    return (
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: 50, textAlign: "center", maxWidth: 460, margin: "36px auto" }}>
+        <CheckCircle2 size={24} color={T.grn} style={{ margin: "0 auto 12px", display: "block" }} />
+        <div style={{ fontSize: 16, fontWeight: 700, color: T.tx }}>Request Submitted</div>
+        <div style={{ fontSize: 11, color: T.dim, marginTop: 5 }}>Assigned <span style={{ color: T.amb, fontWeight: 600 }}>{done}</span></div>
+        <button onClick={function() { setDone(null); }} style={{ marginTop: 16, padding: "7px 20px", background: T.blu, color: T.bg, border: "none", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: T.ff }}>Submit Another</button>
+      </div>
+    );
+  }
+
+  var ok = f.name && f.owner && f.cost;
+  return (
+    <div>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>Submit CapEx Request</h2>
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "22px 26px", maxWidth: 680 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ gridColumn: "1/-1" }}><label style={lS}>Project Name *</label><input style={iS} value={f.name} onChange={function(e) { up("name", e.target.value); }} /></div>
+          <div><label style={lS}>Entity</label><select style={iS} value={f.entity} onChange={function(e) { up("entity", e.target.value); }}>{ENTITIES.map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
+          <div><label style={lS}>Site</label><select style={iS} value={f.site} onChange={function(e) { up("site", e.target.value); }}>{SITES.map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
+          <div><label style={lS}>Category (determines routing)</label><select style={iS} value={f.cat} onChange={function(e) { up("cat", e.target.value); }}>{CATS.map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
+          <div><label style={lS}>Project Manager *</label><input style={iS} value={f.owner} onChange={function(e) { up("owner", e.target.value); }} /></div>
+          <div><label style={lS}>Equipment Cost * ($)</label><input style={iS} type="number" value={f.cost} onChange={function(e) { up("cost", e.target.value); }} /></div>
+          <div><label style={lS}>Target Quarter</label><select style={iS} value={f.quarter} onChange={function(e) { up("quarter", e.target.value); }}>{["Q1 2026","Q2 2026","Q3 2026","Q4 2026"].map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
+          <div><label style={lS}>Budget Status *</label><select style={iS} value={f.budgeted} onChange={function(e) { up("budgeted", e.target.value); }}><option>Budgeted</option><option>Unbudgeted</option></select></div>
+          <div><label style={lS}>Urgency</label><select style={iS} value={f.urgency} onChange={function(e) { up("urgency", e.target.value); }}>{["Standard","High - Current Quarter","Critical - Safety/Compliance","Emergency"].map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
+          <div><label style={lS}>Expected ROI / Payback</label><input style={iS} value={f.roi} onChange={function(e) { up("roi", e.target.value); }} placeholder="e.g., 18 months, 2.5x, $50K/yr savings" /></div>
+          <div><label style={lS}>Expected Annual Savings ($)</label><input style={iS} type="number" value={f.savings} onChange={function(e) { up("savings", e.target.value); }} placeholder="0" /></div>
+          <div style={{ gridColumn: "1/-1" }}><label style={lS}>Risk if Not Approved / Delayed</label><textarea style={Object.assign({}, iS, { height: 44, resize: "vertical" })} value={f.risk} onChange={function(e) { up("risk", e.target.value); }} placeholder="What happens if this doesn't get done..." /></div>
+          <div style={{ gridColumn: "1/-1" }}><label style={lS}>Business Justification *</label><textarea style={Object.assign({}, iS, { height: 60, resize: "vertical" })} value={f.justification} onChange={function(e) { up("justification", e.target.value); }} /></div>
+        </div>
+        {f.cat && (
+          <div style={{ marginTop: 12, padding: "10px 14px", background: routeColor(getRoute(f.cat)) + "10", border: "1px solid " + routeColor(getRoute(f.cat)) + "30", borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: routeColor(getRoute(f.cat)), fontWeight: 600, marginBottom: 4 }}>Routes via {routeLabel(getRoute(f.cat))}</div>
+            {f.cost && f.budgeted && (
+              <div style={{ fontSize: 9, color: T.dim, lineHeight: 1.6 }}>
+                {f.budgeted === "Unbudgeted" && parseFloat(f.cost) > 20000 ? "DoA: Unbudgeted > $20K requires Gemspring board approval" : f.budgeted === "Unbudgeted" && parseFloat(f.cost) > 10000 ? "DoA: Unbudgeted > $10K requires CEO approval" : f.budgeted === "Budgeted" && parseFloat(f.cost) > 100000 ? "DoA: Budgeted > $100K requires CEO approval, CFO consulted" : "DoA: Within standard approval thresholds"}
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+          <button onClick={go} style={{ padding: "7px 20px", background: ok ? T.blu : T.bg3, color: ok ? T.bg : T.dim, border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: ok ? "pointer" : "not-allowed", fontFamily: T.ff }}>Submit for Approval</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailPanel({ p, onClose, onAction }) {
+  var [cmt, setCmt] = useState("");
+  if (!p) return null;
+  var steps = getChainSteps(p.c, p.st, p.b, p.bg !== false);
+  steps[0].nm = p.o;
+  var r = getRoute(p.c);
+  var isPend = p.st.startsWith("Pending");
+  var isBudgeted = p.bg !== false;
+
+  return (
+    <div style={{ position: "fixed", top: 0, right: 0, width: 420, height: "100vh", background: T.bg2, borderLeft: "1px solid " + T.bdr, boxShadow: "-8px 0 28px rgba(0,0,0,0.35)", zIndex: 100, overflowY: "auto", padding: "20px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+        <span style={{ fontSize: 10, color: T.dim }}>{p.id}</span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={15} color={T.dim} /></button>
+      </div>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: T.tx, margin: "0 0 7px" }}>{p.n}</h3>
+      <div style={{ display: "flex", gap: 6 }}>
+        <Badge st={p.st} />
+        <Route cat={p.c} />
+        <span style={{ background: isBudgeted ? T.grn + "20" : T.red + "20", color: isBudgeted ? T.grn : T.red, padding: "2px 8px", borderRadius: 3, fontSize: 9, fontWeight: 600, border: "1px solid " + (isBudgeted ? T.grn : T.red) + "33" }}>{isBudgeted ? "Budgeted" : "Unbudgeted"}</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginTop: 20 }}>
+        {[["Site", p.s], ["Category", p.c], ["Owner", p.o], ["Timing", p.t], ["Entity", p.e], ["Budget", fF(p.b)], ["Status", isBudgeted ? "Budgeted" : "UNBUDGETED"]].map(function(pair) {
+          return (
+            <div key={pair[0]} style={{ padding: "8px 10px", background: T.bg3, borderRadius: 6, border: "1px solid " + T.bdr }}>
+              <div style={{ fontSize: 8, color: T.dim, textTransform: "uppercase", fontWeight: 600 }}>{pair[0]}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginTop: 2 }}>{pair[1]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 3 }}>Budget Utilization</div>
+        <div style={{ height: 6, background: T.bg3, borderRadius: 3, marginTop: 7, border: "1px solid " + T.bdr }}>
+          <div style={{ height: "100%", width: p.b > 0 ? Math.min((p.sp / p.b) * 100, 100) + "%" : "0%", background: T.blu, borderRadius: 3 }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          <span style={{ fontSize: 9, color: T.dim }}>Spent: {fF(p.sp)}</span>
+          <span style={{ fontSize: 9, color: T.dim }}>Remaining: {fF(Math.max(0, p.b - p.sp))}</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 11 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: T.tx }}>Approval Chain</span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: routeColor(r), background: routeColor(r) + "20", padding: "2px 8px", borderRadius: 3 }}>{routeLabel(r)}</span>
+        </div>
+        {steps.map(function(s, i) {
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+              <div style={{ width: 19, height: 19, borderRadius: "50%", background: s.d ? T.grn + "20" : T.bg3, border: "1px solid " + (s.d ? T.grn : T.bdr), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {s.d ? <CheckCircle2 size={10} color={T.grn} /> : <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.dim }} />}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: s.d ? T.grn : T.dim }}>{s.r}</div>
+                {s.nm && <div style={{ fontSize: 9, color: T.dim }}>{s.nm}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {isPend && (
+        <div style={{ marginTop: 16, padding: "12px 14px", background: T.bg3, borderRadius: 8, border: "1px solid " + T.bdr }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: T.tx, marginBottom: 6 }}>Take Action</div>
+          <input placeholder="Comment..." value={cmt} onChange={function(e) { setCmt(e.target.value); }}
+            style={{ width: "100%", padding: "6px 10px", border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, outline: "none", background: T.bg2, color: T.tx, fontFamily: T.ff, marginBottom: 8, boxSizing: "border-box" }} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={function() { onAction(p.id, "approve", cmt); setCmt(""); }} style={{ flex: 1, padding: "6px 0", background: T.grn, color: T.bg, border: "none", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.ff }}>Approve</button>
+            <button onClick={function() { onAction(p.id, "reject", cmt); setCmt(""); }} style={{ flex: 1, padding: "6px 0", background: "transparent", color: T.red, border: "1px solid " + T.red + "50", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.ff }}>Reject</button>
+            <button onClick={function() { onAction(p.id, "hold", cmt); setCmt(""); }} style={{ flex: 1, padding: "6px 0", background: "transparent", color: T.dim, border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: T.ff }}>Hold</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 9 }}>Cash Flow</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 }}>
+          {["Q1","Q2","Q3","Q4"].map(function(qn, i) {
+            return (
+              <div key={qn} style={{ textAlign: "center", padding: "6px 3px", background: p.q[i] > 0 ? T.blu + "15" : T.bg3, borderRadius: 5, border: "1px solid " + (p.q[i] > 0 ? T.blu + "40" : T.bdr) }}>
+                <div style={{ fontSize: 8, color: T.dim, fontWeight: 600 }}>{qn}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: p.q[i] > 0 ? T.blu : T.dim, marginTop: 2 }}>{p.q[i] > 0 ? fmt(p.q[i]) : "\u2014"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityLog({ data }) {
+  var log = data.log.slice().reverse().slice(0, 50);
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>Activity Log</h2>
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, overflow: "hidden" }}>
+        {log.map(function(e, i) {
+          var col = e.action.includes("Approved") ? T.grn : e.action.includes("Rejected") ? T.red : e.action.includes("Submitted") ? T.blu : T.dim;
+          return (
+            <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid " + T.bdr + "40", display: "flex", gap: 12 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: col, marginTop: 5, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 11, color: T.tx }}>{e.action}</div>
+                {e.comment && <div style={{ fontSize: 10, color: T.dim, marginTop: 2, fontStyle: "italic" }}>"{e.comment}"</div>}
+                <div style={{ fontSize: 9, color: T.dim, marginTop: 2 }}>{e.user} · {new Date(e.ts).toLocaleString()}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExportPage({ data }) {
+  var d = data.projects;
+
+  function exportCSV() {
+    var h = ["ID","Project","Entity","Site","Category","Route","Budget","Spent","Status","Owner","Q1","Q2","Q3","Q4"];
+    var rows = d.map(function(p) {
+      return [p.id, '"' + p.n + '"', p.e, p.s, p.c, routeLabel(getRoute(p.c)), p.b, p.sp, p.st, p.o, p.q[0], p.q[1], p.q[2], p.q[3]].join(",");
+    });
+    var csv = h.join(",") + "\n" + rows.join("\n");
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "capex-pipeline.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  var card = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", cursor: "pointer" };
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>Export & Integrations</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div onClick={exportCSV} style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <Download size={16} color={T.grn} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.tx }}>Export CSV</span>
+          </div>
+          <div style={{ fontSize: 10, color: T.dim }}>Full pipeline for Excel, Power BI, Monday.com</div>
+        </div>
+        <div style={Object.assign({}, card, { cursor: "default" })}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <Database size={16} color={T.blu} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.tx }}>Integration Targets</span>
+          </div>
+          <div style={{ fontSize: 10, color: T.dim }}>Power BI, Monday.com, 13-Week CF, SharePoint</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HowToPage() {
+  var card = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", marginBottom: 12 };
+  var sh = { fontSize: 12, fontWeight: 700, color: T.amb, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" };
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>How To</h2>
+      <div style={card}>
+        <div style={sh}>Routing</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          {[["IT Route", T.blu, "IT Infra, IT Equipment, Software", "PM > VP IT > CFO > President > CEO"],
+            ["Ops Route", T.pur, "Production Equip, Tooling, Maintenance", "PM > VP Transformation > CFO > President > CEO"],
+            ["Cross-Functional", T.amb, "Physical Security, Facility", "PM > VP IT > VP Transformation > CFO > President > CEO"]
+          ].map(function(item) {
+            return (
+              <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 16px", borderTop: "3px solid " + item[1] }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: item[1], marginBottom: 6 }}>{item[0]}</div>
+                <div style={{ fontSize: 9, color: T.dim, marginBottom: 6 }}>{item[2]}</div>
+                <div style={{ fontSize: 9, color: T.tx2 }}>{item[3]}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={card}>
+        <div style={sh}>Approval Chain</div>
+        {[["1","Project Manager","Validates scope",T.grn],["2","Brad Selby (VP IT)","IT + Cross-Functional",T.blu],["3","Brad Sostack (VP Transformation)","Ops + Cross-Functional",T.pur],["4","Tom Naddy (CFO)","Financial review",T.org],["5","Gene Swindell (President)","Operational sign-off",T.amb],["6","Michael J. Puleo (CEO)","Executive approval",T.red],["7","Gemspring (Board)","> $250K required",T.pur]].map(function(item) {
+          return (
+            <div key={item[0]} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", background: item[3] + "20", border: "1px solid " + item[3] + "40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: item[3], flexShrink: 0 }}>{item[0]}</div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: T.tx }}>{item[1]}</div>
+                <div style={{ fontSize: 10, color: T.dim }}>{item[2]}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={card}>
+        <div style={sh}>DoA Thresholds (Gemspring Matrix)</div>
+        <div style={{ fontSize: 10, color: T.dim, marginBottom: 10 }}>Source: OCI Delegation of Authority Matrix (11/11/2025). Budgeted vs unbudgeted determines which chain applies.</div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.grn, marginBottom: 6 }}>Budgeted CapEx</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {[["< $50K","Plant Manager approves",T.grn],["$50K - $100K","VP Ops approves",T.blu],["> $100K","CEO approves, CFO consulted",T.amb]].map(function(item) {
+              return (
+                <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 6, padding: "8px 10px", borderTop: "2px solid " + item[2] }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: item[2] }}>{item[0]}</div>
+                  <div style={{ fontSize: 9, color: T.dim, marginTop: 3 }}>{item[1]}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.red, marginBottom: 6 }}>Unbudgeted CapEx (stricter)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+            {[["< $5K","Plant Mgr",T.grn],["$5K - $10K","VP Ops",T.blu],["$10K - $20K","CEO approves",T.amb],["> $20K","Gemspring board",T.red]].map(function(item) {
+              return (
+                <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 6, padding: "8px 10px", borderTop: "2px solid " + item[2] }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: item[2] }}>{item[0]}</div>
+                  <div style={{ fontSize: 9, color: T.dim, marginTop: 3 }}>{item[1]}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div style={{ background: T.bg2, border: "1px solid " + T.amb + "40", borderRadius: 10, padding: "14px 18px", borderLeft: "3px solid " + T.amb }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <AlertTriangle size={13} color={T.amb} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: T.amb }}>Questions?</span>
+        </div>
+        <p style={{ fontSize: 10, color: T.tx2, margin: 0 }}>System: Brad Selby · Budget: Tom Naddy · Ops: Brad Sostack</p>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  var [data, setData] = useState(null);
+  var [view, setView] = useState("dashboard");
+  var [sel, setSel] = useState(null);
+  var [loading, setLoading] = useState(true);
+  var [ss, setSs] = useState(null);
+
+  useEffect(function() {
+    (async function() {
+      try {
+        var raw = localStorage.getItem(SK);
+        if (!raw) throw new Error("no data");
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.projects && parsed.projects.length > 0) {
+          setData(parsed);
+        } else {
+          throw new Error("empty");
+        }
+      } catch (e) {
+        var s = initData();
+        localStorage.setItem(SK, JSON.stringify(s));
+        setData(s);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  var persist = useCallback(async function(nd) {
+    setData(nd);
+    setSs("saving");
+    try {
+      localStorage.setItem(SK, JSON.stringify(nd));
+      setSs("saved");
+    } catch (e) {
+      setSs("error");
+    }
+    setTimeout(function() { setSs(null); }, 1500);
+  }, []);
+
+  var handleSubmit = useCallback(function(np) {
+    var num = String(data.nextNum).padStart(3, "0");
+    var id = "2026-" + num;
+    var r = getRoute(np.c);
+    var first = (r === "it" || r === "cross") ? "Pending VP IT" : "Pending VP Transformation";
+    var proj = Object.assign({}, np, { id: id, st: first, bg: np.bg });
+    var nd = {
+      projects: data.projects.concat([proj]),
+      log: data.log.concat([{ ts: now(), action: "Submitted: " + np.n + " (" + id + ") - " + fF(np.b), user: "Brad Selby", comment: np.justification || "" }]),
+      nextNum: data.nextNum + 1
+    };
+    persist(nd);
+    return id;
+  }, [data, persist]);
+
+  var handleAction = useCallback(function(pid, action, comment) {
+    var newP = data.projects.map(function(p) {
+      if (p.id !== pid) return p;
+      var ns = p.st;
+      if (action === "approve") ns = getNextStatus(p.c, p.st, p.b, p.bg !== false);
+      else if (action === "reject") ns = "Rejected";
+      else if (action === "hold") ns = "On Hold";
+      return Object.assign({}, p, { st: ns });
+    });
+    var proj = data.projects.find(function(p) { return p.id === pid; });
+    var lbl = action === "approve" ? "Approved" : action === "reject" ? "Rejected" : "Put on Hold";
+    var nd = {
+      projects: newP,
+      log: data.log.concat([{ ts: now(), action: lbl + ": " + proj.n + " (" + pid + ") from " + proj.st, user: "Brad Selby", comment: comment || "" }]),
+      nextNum: data.nextNum
+    };
+    persist(nd);
+    if (sel && sel.id === pid) setSel(newP.find(function(p) { return p.id === pid; }));
+  }, [data, sel, persist]);
+
+  var handleReset = useCallback(async function() {
+    var s = initData();
+    await persist(s);
+    setSel(null);
+  }, [persist]);
+
+  if (loading || !data) {
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: T.bg, fontFamily: T.ff, color: T.dim }}>Loading...</div>;
+  }
+
+  var navItems = [
+    { id: "dashboard", l: "Dashboard", i: LayoutDashboard },
+    { id: "pipeline", l: "Pipeline", i: ListChecks },
+    { id: "approvals", l: "Approvals", i: CheckCircle2 },
+    { id: "submit", l: "New Request", i: PlusCircle },
+    { id: "exports", l: "Export", i: Download },
+    { id: "log", l: "Activity", i: Activity },
+    { id: "howto", l: "How To", i: BookOpen }
+  ];
+  var pc = data.projects.filter(function(p) { return p.st.startsWith("Pending"); }).length;
+
+  return (
+    <div style={{ display: "flex", height: "100vh", fontFamily: T.ff, background: T.bg, color: T.tx }}>
+      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      <div style={{ width: 200, background: T.bg2, borderRight: "1px solid " + T.bdr, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid " + T.bdr }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <Shield size={14} color={T.amb} />
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: T.dim, textTransform: "uppercase" }}>Apex Geotech</span>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.tx, marginTop: 3 }}>CapEx Manager</div>
+        </div>
+
+        <nav style={{ padding: "9px 7px", flex: 1 }}>
+          {navItems.map(function(item) {
+            var Icon = item.i;
+            return (
+              <button key={item.id} onClick={function() { setView(item.id); setSel(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px",
+                  border: "none", borderRadius: 5,
+                  background: view === item.id ? T.bg3 : "transparent",
+                  color: view === item.id ? T.tx : T.dim,
+                  fontSize: 11, fontWeight: view === item.id ? 600 : 500,
+                  cursor: "pointer", textAlign: "left", marginBottom: 1, fontFamily: T.ff,
+                  borderLeft: view === item.id ? "2px solid " + T.blu : "2px solid transparent"
+                }}>
+                <Icon size={14} />
+                {item.l}
+                {item.id === "approvals" && pc > 0 && (
+                  <span style={{ marginLeft: "auto", background: T.red, color: T.bg, borderRadius: 9, padding: "0px 6px", fontSize: 9, fontWeight: 700 }}>{pc}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={{ padding: "10px 14px", borderTop: "1px solid " + T.bdr }}>
+          {ss && (
+            <div style={{ fontSize: 9, color: ss === "saved" ? T.grn : ss === "error" ? T.red : T.amb, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: ss === "saved" ? T.grn : ss === "error" ? T.red : T.amb }} />
+              {ss === "saved" ? "Saved" : ss === "error" ? "Save failed" : "Saving..."}
+            </div>
+          )}
+          <button onClick={handleReset} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "6px 8px", border: "1px solid " + T.bdr, borderRadius: 5, background: "transparent", color: T.dim, fontSize: 9, cursor: "pointer", fontFamily: T.ff, marginBottom: 8 }}>
+            <RefreshCw size={10} /> Reset Data
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 6, background: T.bg3, border: "1px solid " + T.bdr, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: T.blu }}>BS</div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600 }}>Brad Selby</div>
+              <div style={{ fontSize: 9, color: T.dim }}>VP of IT</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", position: "relative" }}>
+        {view === "dashboard" && <Dashboard data={data} />}
+        {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
+        {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
+        {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
+        {view === "exports" && <ExportPage data={data} />}
+        {view === "log" && <ActivityLog data={data} />}
+        {view === "howto" && <HowToPage />}
+      </div>
+
+      {sel && <DetailPanel p={sel} onClose={function() { setSel(null); }} onAction={handleAction} />}
+    </div>
+  );
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById('root'));
+
+</script>
+</body>
+</html>
