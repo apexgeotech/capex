@@ -338,13 +338,39 @@ function Dashboard({ data }) {
   );
 }
 
+function getApprover(st) {
+  if (st === "Pending VP IT") return "Brad Selby";
+  if (st === "Pending VP Transformation") return "Brad Sostack";
+  if (st === "Pending CFO") return "Tom Naddy";
+  if (st === "Pending President") return "Gene Swindell";
+  if (st === "Pending CEO") return "Michael J. Puleo";
+  if (st === "Pending Board") return "Gemspring Board";
+  if (st === "Draft") return "Owner";
+  return "";
+}
+
 function Pipeline({ data, onSel }) {
   var [flt, setFlt] = useState("All");
+  var [aflt, setAflt] = useState("All");
   var [q, setQ] = useState("");
   var d = data.projects;
   var sts = ["All"].concat(Array.from(new Set(d.map(function(p) { return p.st; }))));
+
+  var approverNames = [];
+  d.forEach(function(p) {
+    var a = getApprover(p.st);
+    if (a && a !== "Owner" && approverNames.indexOf(a) < 0) approverNames.push(a);
+  });
+  approverNames.sort();
+  var approverOpts = ["All", "Any Pending"].concat(approverNames);
+
   var rows = d
     .filter(function(p) { return flt === "All" || p.st === flt; })
+    .filter(function(p) {
+      if (aflt === "All") return true;
+      if (aflt === "Any Pending") return p.st.indexOf("Pending") === 0;
+      return getApprover(p.st) === aflt;
+    })
     .filter(function(p) { return !q || p.n.toLowerCase().includes(q.toLowerCase()) || p.s.toLowerCase().includes(q.toLowerCase()) || p.o.toLowerCase().includes(q.toLowerCase()); })
     .sort(function(a, b) { return b.b - a.b; });
 
@@ -355,10 +381,16 @@ function Pipeline({ data, onSel }) {
           <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: 0 }}>CapEx Pipeline</h2>
           <p style={{ fontSize: 11, color: T.dim, margin: "3px 0 0" }}>{rows.length} of {d.length}</p>
         </div>
-        <div style={{ position: "relative" }}>
-          <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: T.dim }} />
-          <input placeholder="Search..." value={q} onChange={function(e) { setQ(e.target.value); }}
-            style={{ padding: "6px 11px 6px 28px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 11, width: 190, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff }} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select value={aflt} onChange={function(e) { setAflt(e.target.value); }}
+            style={{ padding: "6px 8px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 10, outline: "none", background: T.bg3, color: aflt !== "All" ? T.amb : T.dim, fontFamily: T.ff }}>
+            {approverOpts.map(function(a) { return <option key={a} value={a}>{a === "All" ? "All Approvers" : a === "Any Pending" ? "Any Pending" : "Waiting on: " + a}</option>; })}
+          </select>
+          <div style={{ position: "relative" }}>
+            <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: T.dim }} />
+            <input placeholder="Search..." value={q} onChange={function(e) { setQ(e.target.value); }}
+              style={{ padding: "6px 11px 6px 28px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 11, width: 190, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff }} />
+          </div>
         </div>
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
@@ -370,13 +402,15 @@ function Pipeline({ data, onSel }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: T.bg3 }}>
-              {["ID","Initiative","Site","Category","Route","Budget","Status","Owner"].map(function(h) {
+              {["ID","Initiative","Site","Category","Route","Budget","Status","Waiting On","Owner"].map(function(h) {
                 return <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 9, fontWeight: 600, color: T.dim, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid " + T.bdr }}>{h}</th>;
               })}
             </tr>
           </thead>
           <tbody>
             {rows.map(function(p) {
+              var approver = getApprover(p.st);
+              var approverColor = approver ? T.amb : T.dim + "44";
               return (
                 <tr key={p.id} onClick={function() { onSel(p); }} style={{ cursor: "pointer" }}
                   onMouseEnter={function(e) { e.currentTarget.style.background = T.bg3; }}
@@ -388,6 +422,7 @@ function Pipeline({ data, onSel }) {
                   <td style={{ padding: "9px 10px", borderBottom: "1px solid " + T.bdr + "30" }}><Route cat={p.c} /></td>
                   <td style={{ padding: "9px 10px", fontSize: 10, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30" }}>{p.b > 0 ? fF(p.b) : "\u2014"}</td>
                   <td style={{ padding: "9px 10px", borderBottom: "1px solid " + T.bdr + "30" }}><Badge st={p.st} /></td>
+                  <td style={{ padding: "9px 10px", fontSize: 10, fontWeight: 600, color: approverColor, borderBottom: "1px solid " + T.bdr + "30" }}>{approver || "\u2014"}</td>
                   <td style={{ padding: "9px 10px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30" }}>{p.o}</td>
                 </tr>
               );
