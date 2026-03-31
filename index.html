@@ -50,6 +50,7 @@ function RefreshCw(p) { return React.createElement(SvgIcon, p, React.createEleme
 function Database(p) { return React.createElement(SvgIcon, p, React.createElement("ellipse",{cx:"12",cy:"5",rx:"9",ry:"3"}), React.createElement("path",{d:"M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"}), React.createElement("path",{d:"M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"})); }
 function Activity(p) { return React.createElement(SvgIcon, p, React.createElement("polyline",{points:"22 12 18 12 15 21 9 3 6 12 2 12"})); }
 function MessageSquare(p) { return React.createElement(SvgIcon, p, React.createElement("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})); }
+function Receipt(p) { return React.createElement(SvgIcon, p, React.createElement("path",{d:"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"}), React.createElement("path",{d:"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"}), React.createElement("path",{d:"M12 17.5v-11"})); }
 
 const T = {
   bg: "#1C2333", bg2: "#232D40", bg3: "#2A3650", bdr: "#3A4A62",
@@ -163,7 +164,7 @@ var SEED = [
   {id:"2026-022",n:"WB IT CapEx",e:"Apex",s:"Wilkes-Barre",c:"IT Infrastructure",b:91000,sp:30000,st:"In Progress",o:"Brad Selby",q:[91000,0,0,0],t:"Q1",bg:true},
   {id:"2026-023",n:"Brookville IT CapEx",e:"Apex",s:"Brookville",c:"IT Infrastructure",b:60000,sp:20000,st:"In Progress",o:"Brad Selby",q:[60000,0,0,0],t:"Q1-Q2",bg:true},
   {id:"2026-024",n:"Laptops / Hardware",e:"Apex",s:"All Sites",c:"IT Equipment",b:60000,sp:20000,st:"In Progress",o:"Brad Selby",q:[20000,20000,0,0],t:"Q1-Q2",bg:true},
-  {id:"2026-025",n:"Server Infrastructure",e:"Apex",s:"Multi-Site",c:"IT Infrastructure",b:110000,sp:0,st:"Pending CFO",o:"Brad Selby",q:[0,110000,0,0],t:"Q2",bg:false},
+  {id:"2026-025",n:"Server Infrastructure",e:"Apex",s:"Multi-Site",c:"IT Infrastructure",b:110000,sp:0,st:"Approved",o:"Brad Selby",q:[0,110000,0,0],t:"Q2",bg:false},
   {id:"2026-026",n:"Salto Access Control",e:"OCI",s:"Multi-Site",c:"Physical Security",b:78000,sp:0,st:"Pending VP IT",o:"Jarvis Black",q:[0,78000,0,0],t:"Q2",bg:false},
   {id:"2026-027",n:"Gantry Crane - KG",e:"OCI",s:"Kilgore",c:"Production Equipment",b:98443,sp:0,st:"Approved",o:"Dane Morgan",q:[0,0,98443,0],t:"Q3",bg:true},
   {id:"2026-028",n:"BV ST50 Replacement",e:"OCI",s:"Brookville",c:"Production Equipment",b:0,sp:0,st:"Draft",o:"Brandon Henry",q:[0,0,0,0],t:"TBD",bg:false},
@@ -176,7 +177,8 @@ function initData() {
   return {
     projects: SEED.map(function(p) { return Object.assign({}, p); }),
     log: [{ ts: now(), action: "System initialized with 28 seed projects", user: "System" }],
-    nextNum: 30
+    nextNum: 30,
+    expenses: []
   };
 }
 
@@ -790,6 +792,206 @@ function HowToPage() {
   );
 }
 
+function SpendTracker({ data, onUpdate }) {
+  var [selProj, setSelProj] = useState("all");
+  var [showForm, setShowForm] = useState(false);
+  var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+
+  var expenses = (data && data.expenses) ? data.expenses : [];
+  var activeProjects = data.projects.filter(function(p) { return ["Approved","In Progress","Complete"].indexOf(p.st) >= 0; });
+  var filtered = selProj === "all" ? expenses : expenses.filter(function(e) { return e.projectId === selProj; });
+  filtered = filtered.slice().sort(function(a, b) { return b.date > a.date ? 1 : -1; });
+
+  var totalLogged = filtered.reduce(function(s, e) { return s + e.amount; }, 0);
+  var selProjData = selProj !== "all" ? data.projects.find(function(p) { return p.id === selProj; }) : null;
+  var budgetForSel = selProjData ? selProjData.b : data.projects.reduce(function(s, p) { return s + p.b; }, 0);
+  var spentForSel = totalLogged;
+  var pctUsed = budgetForSel > 0 ? Math.min((spentForSel / budgetForSel) * 100, 100) : 0;
+  var overBudget = spentForSel > budgetForSel;
+  var missingReceipts = filtered.filter(function(e) { return !e.hasReceipt; }).length;
+
+  var iS = { width: "100%", padding: "7px 9px", border: "1px solid " + T.bdr, borderRadius: 4, fontSize: 11, fontFamily: T.ff, outline: "none", background: T.bg3, color: T.tx, boxSizing: "border-box" };
+  var lS = { fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, marginBottom: 3, display: "block", textTransform: "uppercase", letterSpacing: "0.08em" };
+
+  function handleAdd() {
+    if (!nv.vendor || !nv.amount || !nv.projectId) return;
+    var ne = {
+      id: Date.now(),
+      vendor: nv.vendor,
+      desc: nv.desc,
+      amount: parseFloat(nv.amount),
+      date: nv.date || new Date().toISOString().split("T")[0],
+      po: nv.po,
+      inv: nv.inv,
+      projectId: nv.projectId,
+      hasReceipt: nv.hasReceipt
+    };
+    var newExpenses = [ne].concat(expenses);
+    var proj = data.projects.find(function(p) { return p.id === nv.projectId; });
+    var projName = proj ? proj.n : nv.projectId;
+    var nd = Object.assign({}, data, {
+      expenses: newExpenses,
+      log: data.log.concat([{ ts: now(), action: "Expense logged: " + fF(ne.amount) + " to " + ne.vendor + " for " + projName + " (" + nv.projectId + ")", user: "Brad Selby", comment: ne.desc }])
+    });
+    onUpdate(nd);
+    setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+    setShowForm(false);
+  }
+
+  function setField(field, val) {
+    var obj = {};
+    obj[field] = val;
+    setNv(Object.assign({}, nv, obj));
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>Spend Tracker</div>
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>Log expenses, attach receipts, track actuals vs. budget</div>
+        </div>
+        <button onClick={function() { setShowForm(!showForm); }} style={{
+          padding: "7px 16px", background: showForm ? T.red + "18" : T.grn + "18",
+          color: showForm ? T.red : T.grn, border: "1px solid " + (showForm ? T.red : T.grn) + "44",
+          borderRadius: 5, fontSize: 10, fontWeight: 700, fontFamily: T.ff, cursor: "pointer"
+        }}>{showForm ? "Cancel" : "+ Log Expense"}</button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "18px 20px", marginBottom: 16, borderLeft: "3px solid " + T.grn }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.tx, fontFamily: T.ff, marginBottom: 14 }}>New Expense Entry</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={lS}>Project *</label>
+              <select style={iS} value={nv.projectId} onChange={function(e) { setField("projectId", e.target.value); }}>
+                <option value="">Select project...</option>
+                {activeProjects.map(function(pr) { return <option key={pr.id} value={pr.id}>{pr.id + " - " + pr.n}</option>; })}
+              </select>
+            </div>
+            <div>
+              <label style={lS}>Vendor *</label>
+              <input style={iS} value={nv.vendor} onChange={function(e) { setField("vendor", e.target.value); }} placeholder="e.g., CDW, Dell, Bescutter" />
+            </div>
+            <div>
+              <label style={lS}>Amount *</label>
+              <input style={iS} type="number" value={nv.amount} onChange={function(e) { setField("amount", e.target.value); }} placeholder="$0" />
+            </div>
+            <div>
+              <label style={lS}>Description</label>
+              <input style={iS} value={nv.desc} onChange={function(e) { setField("desc", e.target.value); }} placeholder="What was purchased" />
+            </div>
+            <div>
+              <label style={lS}>PO #</label>
+              <input style={iS} value={nv.po} onChange={function(e) { setField("po", e.target.value); }} placeholder="PO-2026-XXX" />
+            </div>
+            <div>
+              <label style={lS}>Invoice #</label>
+              <input style={iS} value={nv.inv} onChange={function(e) { setField("inv", e.target.value); }} placeholder="Vendor invoice #" />
+            </div>
+            <div>
+              <label style={lS}>Date</label>
+              <input style={iS} type="date" value={nv.date} onChange={function(e) { setField("date", e.target.value); }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: T.dim, fontFamily: T.ff, cursor: "pointer", padding: "7px 0" }}>
+                <input type="checkbox" checked={nv.hasReceipt} onChange={function(e) { setField("hasReceipt", e.target.checked); }} />
+                Receipt attached
+              </label>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button onClick={handleAdd} style={{
+                padding: "8px 20px", background: T.grn + "18", color: T.grn,
+                border: "1px solid " + T.grn + "44", borderRadius: 5,
+                fontSize: 10, fontWeight: 700, fontFamily: T.ff, cursor: "pointer", width: "100%"
+              }}>Save Entry</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 16px", flex: "0 0 210px" }}>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Filter by Project</div>
+          <select style={Object.assign({}, iS, { width: "100%" })} value={selProj} onChange={function(e) { setSelProj(e.target.value); }}>
+            <option value="all">All Projects</option>
+            {activeProjects.map(function(pr) { return <option key={pr.id} value={pr.id}>{pr.id + " " + pr.n}</option>; })}
+          </select>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 16px", flex: 1 }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Budget</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{fF(budgetForSel)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Spent</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fF(spentForSel)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Remaining</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: overBudget ? T.red : T.grn, fontFamily: T.ff }}>{fF(budgetForSel - spentForSel)}</div>
+            </div>
+            {missingReceipts > 0 && (
+              <div>
+                <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Missing Receipts</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: T.red, fontFamily: T.ff }}>{missingReceipts}</div>
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>{pctUsed.toFixed(1) + "% utilized"}</span>
+              </div>
+              <div style={{ height: 7, background: T.bg3, borderRadius: 4 }}>
+                <div style={{ height: "100%", width: pctUsed + "%", background: overBudget ? T.red : pctUsed > 80 ? T.amb : T.grn, borderRadius: 4 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["Date", "Project", "Vendor", "Description", "PO #", "Invoice #", "Amount", "Receipt"].map(function(h) {
+                return <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid " + T.bdr, background: T.bg3 }}>{h}</th>;
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(function(e) {
+              var proj = data.projects.find(function(p) { return p.id === e.projectId; });
+              return (
+                <tr key={e.id} onMouseEnter={function(ev) { ev.currentTarget.style.background = T.bg3; }} onMouseLeave={function(ev) { ev.currentTarget.style.background = "transparent"; }}>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.date}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.blu, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{proj ? proj.n : e.projectId}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.vendor}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.desc}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.po || "--"}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.inv || "--"}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: T.amb, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{fF(e.amount)}</td>
+                  <td style={{ padding: "8px 12px", borderBottom: "1px solid " + T.bdr + "55" }}>
+                    {e.hasReceipt
+                      ? <span style={{ color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600 }}>Attached</span>
+                      : <span style={{ color: T.red + "88", fontSize: 10, fontFamily: T.ff }}>Missing</span>
+                    }
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {filtered.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: T.dim, fontSize: 11, fontFamily: T.ff }}>
+            {selProj === "all" ? "No expenses logged yet. Click \"+ Log Expense\" to add your first entry." : "No expenses logged for this project yet."}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   var [data, setData] = useState(null);
   var [view, setView] = useState("dashboard");
@@ -803,6 +1005,7 @@ function App() {
         var result = localStorage.getItem(SK);
         var parsed = JSON.parse(result);
         if (parsed && parsed.projects && parsed.projects.length > 0) {
+          if (!parsed.expenses) { parsed.expenses = []; }
           setData(parsed);
         } else {
           throw new Error("empty");
@@ -837,7 +1040,8 @@ function App() {
     var nd = {
       projects: data.projects.concat([proj]),
       log: data.log.concat([{ ts: now(), action: "Submitted: " + np.n + " (" + id + ") - " + fF(np.b), user: "Brad Selby", comment: np.justification || "" }]),
-      nextNum: data.nextNum + 1
+      nextNum: data.nextNum + 1,
+      expenses: data.expenses || []
     };
     persist(nd);
     return id;
@@ -859,7 +1063,8 @@ function App() {
     var nd = {
       projects: newP,
       log: data.log.concat([{ ts: now(), action: lbl + ": " + proj.n + " (" + pid + ") from " + proj.st, user: "Brad Selby", comment: comment || "" }]),
-      nextNum: data.nextNum
+      nextNum: data.nextNum,
+      expenses: data.expenses || []
     };
     persist(nd);
     if (sel && sel.id === pid) setSel(newP.find(function(p) { return p.id === pid; }));
@@ -878,6 +1083,7 @@ function App() {
   var navItems = [
     { id: "dashboard", l: "Dashboard", i: LayoutDashboard },
     { id: "pipeline", l: "Pipeline", i: ListChecks },
+    { id: "spend", l: "Spend Tracker", i: Receipt },
     { id: "approvals", l: "Approvals", i: CheckCircle2 },
     { id: "submit", l: "New Request", i: PlusCircle },
     { id: "exports", l: "Export", i: Download },
@@ -946,6 +1152,7 @@ function App() {
       <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", position: "relative" }}>
         {view === "dashboard" && <Dashboard data={data} />}
         {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
+        {view === "spend" && <SpendTracker data={data} onUpdate={persist} />}
         {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
         {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
         {view === "exports" && <ExportPage data={data} />}
