@@ -172,6 +172,8 @@ var SEED = [
 ];
 
 var SK = "capex-data-v4";
+var API_URL = "http://104.236.235.206:8100";
+var CURRENT_USER = "Brad Selby";
 
 function initData() {
   return {
@@ -1037,17 +1039,30 @@ function App() {
   useEffect(function() {
     (async function() {
       try {
-        var result = localStorage.getItem(SK);
-        var parsed = JSON.parse(result);
-        if (parsed && parsed.projects && parsed.projects.length > 0) {
-          if (!parsed.expenses) { parsed.expenses = []; }
-          setData(parsed);
-        } else {
-          throw new Error("empty");
+        var resp = await fetch(API_URL + "/api/data");
+        if (resp.ok) {
+          var result = await resp.json();
+          var parsed = result.data;
+          if (parsed && parsed.projects && parsed.projects.length > 0) {
+            if (!parsed.expenses) { parsed.expenses = []; }
+            setData(parsed);
+            setLoading(false);
+            return;
+          }
         }
+        throw new Error("api-empty");
       } catch (e) {
+        try {
+          var local = localStorage.getItem(SK);
+          var lp = JSON.parse(local);
+          if (lp && lp.projects && lp.projects.length > 0) {
+            if (!lp.expenses) { lp.expenses = []; }
+            setData(lp);
+            setLoading(false);
+            return;
+          }
+        } catch (e2) {}
         var s = initData();
-        localStorage.setItem(SK, JSON.stringify(s));
         setData(s);
       }
       setLoading(false);
@@ -1058,10 +1073,20 @@ function App() {
     setData(nd);
     setSs("saving");
     try {
-      localStorage.setItem(SK, JSON.stringify(nd));
+      var resp = await fetch(API_URL + "/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: nd, user: CURRENT_USER })
+      });
+      if (!resp.ok) throw new Error("api-save-failed");
       setSs("saved");
     } catch (e) {
-      setSs("error");
+      try {
+        localStorage.setItem(SK, JSON.stringify(nd));
+        setSs("saved-local");
+      } catch (e2) {
+        setSs("error");
+      }
     }
     setTimeout(function() { setSs(null); }, 1500);
   }, []);
@@ -1107,6 +1132,13 @@ function App() {
 
   var handleReset = useCallback(async function() {
     var s = initData();
+    try {
+      await fetch(API_URL + "/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: s, user: CURRENT_USER })
+      });
+    } catch (e) {}
     await persist(s);
     setSel(null);
   }, [persist]);
@@ -1166,9 +1198,9 @@ function App() {
 
         <div style={{ padding: "10px 14px", borderTop: "1px solid " + T.bdr }}>
           {ss && (
-            <div style={{ fontSize: 9, color: ss === "saved" ? T.grn : ss === "error" ? T.red : T.amb, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: ss === "saved" ? T.grn : ss === "error" ? T.red : T.amb }} />
-              {ss === "saved" ? "Saved" : ss === "error" ? "Save failed" : "Saving..."}
+            <div style={{ fontSize: 9, color: ss === "saved" ? T.grn : ss === "saved-local" ? T.amb : ss === "error" ? T.red : T.amb, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: ss === "saved" ? T.grn : ss === "saved-local" ? T.amb : ss === "error" ? T.red : T.amb }} />
+              {ss === "saved" ? "Saved (shared)" : ss === "saved-local" ? "Saved (local)" : ss === "error" ? "Save failed" : "Saving..."}
             </div>
           )}
           <button onClick={handleReset} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "6px 8px", border: "1px solid " + T.bdr, borderRadius: 5, background: "transparent", color: T.dim, fontSize: 9, cursor: "pointer", fontFamily: T.ff, marginBottom: 8 }}>
