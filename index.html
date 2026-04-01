@@ -189,6 +189,58 @@ var USERS = [
 ];
 var CURRENT_USER = USERS[0].name;
 
+var FINANCE_DATA = [
+  { id: "2026-001", mb: 313000, act: 0, vendors: [], note: "" },
+  { id: "2026-002", mb: 762000, act: 169346, vendors: [
+    { v: "Mt. Penn Tool & Machine (deposit)", a: 26421, m: "Jan" },
+    { v: "Mt. Penn Tool & Machine (#532293)", a: 65119, m: "Jan" },
+    { v: "Northeast Installation & Rigging (#4805)", a: 3000, m: "Feb" },
+    { v: "Northeast Installation & Rigging (#4804)", a: 7000, m: "Feb" },
+    { v: "Taylor Northeast (#2PS105854)", a: 17000, m: "Feb" },
+    { v: "Arc Electric (#52378)", a: 15217, m: "Mar" },
+    { v: "Arc Electric (#52501 partial)", a: 6373, m: "Apr" },
+    { v: "Applied Industrial Tech (#7033957914)", a: 25406, m: "Apr" }
+  ], note: "MB bundles CNC + Sylvania + Saw Bay + Manual CNC + Refurb under 2A" },
+  { id: "2026-003", mb: null, act: 0, vendors: [], note: "Bundled under 2A in Finance tracker" },
+  { id: "2026-004", mb: null, act: 0, vendors: [], note: "Bundled under 2A in Finance tracker" },
+  { id: "2026-005", mb: 0, act: 85404, vendors: [{ v: "Sigmanest", a: 85404, m: "Mar" }], note: "$0 budget in Finance but $85K spent - unbudgeted?" },
+  { id: "2026-006", mb: null, act: 0, vendors: [], note: "Bundled under 2A in Finance tracker" },
+  { id: "2026-007", mb: null, act: 0, vendors: [], note: "Bundled under 2A in Finance tracker" },
+  { id: "2026-008", mb: 150000, act: 0, vendors: [], note: "" },
+  { id: "2026-009", mb: 1030000, act: 0, vendors: [], note: "MB includes Thread Bar Saws ($250K) as sub-line" },
+  { id: "2026-010", mb: 900000, act: 0, vendors: [], note: "Major gap - verify approved budget" },
+  { id: "2026-011", mb: 300000, act: 0, vendors: [], note: "" },
+  { id: "2026-012", mb: 500000, act: 0, vendors: [], note: "" },
+  { id: "2026-04a", mb: 859000, act: 492000, vendors: [{ v: "Bescutter - Round Tube Fiber Laser", a: 492000, m: "May" }], note: "" },
+  { id: "2026-013", mb: 0, act: 223130, vendors: [
+    { v: "Team Industries Inc", a: 166661, m: "May" },
+    { v: "Mitrowski Welding Equipment", a: 56470, m: "Mar" }
+  ], note: "$0 budget in Finance but $223K spent - unbudgeted?" },
+  { id: "2026-015", mb: 560000, act: 546000, vendors: [
+    { v: "Precision Machine & Tool - Puma 800B deposit", a: 54200, m: "Jan" },
+    { v: "Precision Machine & Tool - Puma 800B 80%", a: 433600, m: "Feb" },
+    { v: "Precision Machine & Tool - Puma 800B bal", a: 54200, m: "Apr" },
+    { v: "Arc Electric (#52501 partial)", a: 4000, m: "Apr" }
+  ], note: "" },
+  { id: "2026-016", mb: 215000, act: 0, vendors: [], note: "" },
+  { id: "2026-017", mb: 85000, act: 0, vendors: [], note: "Owner: Dane, Finance: Brad/Kelsey" },
+  { id: "2026-018", mb: 300000, act: 288360, vendors: [
+    { v: "Hadley Construction", a: 183380, m: "Jan+Apr" },
+    { v: "BMC Office Furniture", a: 104981, m: "Apr" }
+  ], note: "Owner: Steve O, Finance: Mary" },
+  { id: "2026-019", mb: 195000, act: 0, vendors: [], note: "" },
+  { id: "2026-020", mb: 85000, act: 0, vendors: [], note: "System $106K vs Finance $85K - likely swapped with Polk" },
+  { id: "2026-021", mb: 106000, act: 0, vendors: [], note: "System $81K vs Finance $106K - likely swapped with KG" },
+  { id: "2026-022", mb: 81000, act: 0, vendors: [], note: "System $91K vs Finance $81K" },
+  { id: "2026-023", mb: 91000, act: 0, vendors: [], note: "System $60K vs Finance $91K" },
+  { id: "2026-024", mb: 60000, act: 0, vendors: [], note: "" },
+  { id: "2026-025", mb: null, act: 0, vendors: [], note: "Not in Finance tracker" },
+  { id: "2026-026", mb: null, act: 0, vendors: [], note: "Not in Finance tracker" },
+  { id: "2026-027", mb: null, act: 0, vendors: [], note: "Not in Finance tracker" },
+  { id: "2026-028", mb: null, act: 0, vendors: [], note: "Not in Finance tracker" },
+  { id: "2026-029", mb: null, act: 0, vendors: [], note: "Not in Finance tracker" }
+];
+
 function initData() {
   return {
     projects: SEED.map(function(p) { return Object.assign({}, p); }),
@@ -843,6 +895,129 @@ function HowToPage() {
   );
 }
 
+function Reconciliation({ data }) {
+  var [showVendors, setShowVendors] = useState(null);
+  var [filter, setFilter] = useState("all");
+
+  var rows = data.projects.map(function(p) {
+    var fd = FINANCE_DATA.find(function(f) { return f.id === p.id; });
+    if (!fd) return { p: p, mb: null, act: 0, vendors: [], note: "Not in Finance tracker", status: "missing" };
+    if (fd.mb === null) return { p: p, mb: null, act: fd.act, vendors: fd.vendors, note: fd.note, status: "bundled" };
+    var delta = p.b - fd.mb;
+    var st = "match";
+    if (fd.mb === 0 && fd.act > 0) st = "warning";
+    else if (Math.abs(delta) > 1000) st = "mismatch";
+    return { p: p, mb: fd.mb, act: fd.act, vendors: fd.vendors, note: fd.note, delta: delta, status: st };
+  }).filter(function(r) { return r.status !== "bundled"; });
+
+  var filtered = filter === "all" ? rows : rows.filter(function(r) { return r.status === filter; });
+  var matchCount = rows.filter(function(r) { return r.status === "match"; }).length;
+  var mismatchCount = rows.filter(function(r) { return r.status === "mismatch"; }).length;
+  var warningCount = rows.filter(function(r) { return r.status === "warning"; }).length;
+  var totalSystemBudget = rows.reduce(function(s, r) { return s + r.p.b; }, 0);
+  var totalFinanceBudget = rows.reduce(function(s, r) { return s + (r.mb || 0); }, 0);
+  var totalActuals = rows.reduce(function(s, r) { return s + r.act; }, 0);
+  var stColors = { match: T.grn, mismatch: T.red, warning: T.amb, missing: T.dim };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>Budget Reconciliation</div>
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>CapEx System vs. Finance Tracker (Mary Beth)</div>
+        </div>
+        <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>Source: 2026 CapEx Summary Working File</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 16px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: T.grn, fontFamily: T.ff }}>{matchCount}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Match</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 16px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: T.red, fontFamily: T.ff }}>{mismatchCount}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Mismatch</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 16px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{warningCount}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Unbudgeted Spend</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 16px", flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>System</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{fmt(totalSystemBudget)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>Finance</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fmt(totalFinanceBudget)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>Actuals YTD</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.blu, fontFamily: T.ff }}>{fmt(totalActuals)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+        {[{ k: "all", l: "All" }, { k: "match", l: "Match" }, { k: "mismatch", l: "Mismatch" }, { k: "warning", l: "Unbudgeted" }].map(function(f) {
+          return <button key={f.k} onClick={function() { setFilter(f.k); }} style={{ padding: "3px 11px", borderRadius: 5, border: filter === f.k ? "1.5px solid " + T.blu : "1px solid " + T.bdr, background: filter === f.k ? T.bg3 : T.bg2, color: filter === f.k ? T.blu : T.dim, fontSize: 10, cursor: "pointer", fontFamily: T.ff }}>{f.l}</button>;
+        })}
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: T.bg3 }}>
+              {["ID", "Initiative", "System Budget", "Finance Budget", "Delta", "Actuals YTD", "Status", "Notes / Action"].map(function(h) {
+                return <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 9, fontWeight: 600, color: T.dim, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid " + T.bdr }}>{h}</th>;
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(function(r) {
+              var sc = stColors[r.status] || T.dim;
+              return React.createElement(React.Fragment, { key: r.p.id },
+                React.createElement("tr", {
+                  style: { cursor: r.vendors.length > 0 ? "pointer" : "default" },
+                  onClick: function() { if (r.vendors.length > 0) setShowVendors(showVendors === r.p.id ? null : r.p.id); },
+                  onMouseEnter: function(e) { e.currentTarget.style.background = T.bg3; },
+                  onMouseLeave: function(e) { e.currentTarget.style.background = "transparent"; }
+                },
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.p.id),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } },
+                    r.p.n, r.vendors.length > 0 ? React.createElement("span", { style: { marginLeft: 6, fontSize: 9, color: T.blu } }, r.vendors.length + " vendor" + (r.vendors.length > 1 ? "s" : "") + " " + (showVendors === r.p.id ? "\u25B2" : "\u25BC")) : null
+                  ),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.p.b > 0 ? fF(r.p.b) : "\u2014"),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, fontWeight: 600, color: r.mb !== null ? T.amb : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.mb !== null ? fF(r.mb) : "\u2014"),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, fontWeight: 700, color: r.delta && r.delta !== 0 ? (r.delta > 0 ? T.grn : T.red) : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.delta ? (r.delta > 0 ? "+" : "") + fF(r.delta) : "\u2014"),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, fontWeight: 600, color: r.act > 0 ? T.blu : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.act > 0 ? fF(r.act) : "\u2014"),
+                  React.createElement("td", { style: { padding: "9px 10px", borderBottom: "1px solid " + T.bdr + "30" } },
+                    React.createElement("span", { style: { background: sc + "20", color: sc, padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, border: "1px solid " + sc + "33", textTransform: "uppercase" } },
+                      r.status === "match" ? "Match" : r.status === "mismatch" ? "Mismatch" : r.status === "warning" ? "Unbudgeted" : "N/A"
+                    )
+                  ),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 9, color: r.note ? T.amb : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff, maxWidth: 200 } }, r.note || "\u2014")
+                ),
+                showVendors === r.p.id ? r.vendors.map(function(vr, vi) {
+                  return React.createElement("tr", { key: r.p.id + "-v" + vi, style: { background: T.bg3 + "80" } },
+                    React.createElement("td", { style: { padding: "5px 10px 5px 30px", fontSize: 9, color: T.dim, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff } }, ""),
+                    React.createElement("td", { style: { padding: "5px 10px", fontSize: 9, color: T.tx2, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff }, colSpan: 2 }, vr.v),
+                    React.createElement("td", { style: { padding: "5px 10px", fontSize: 9, color: T.dim, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff } }, ""),
+                    React.createElement("td", { style: { padding: "5px 10px", fontSize: 9, color: T.dim, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff } }, ""),
+                    React.createElement("td", { style: { padding: "5px 10px", fontSize: 9, fontWeight: 600, color: T.blu, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff } }, fF(vr.a)),
+                    React.createElement("td", { style: { padding: "5px 10px", fontSize: 9, color: T.dim, borderBottom: "1px solid " + T.bdr + "20", fontFamily: T.ff } }, vr.m),
+                    React.createElement("td", { style: { padding: "5px 10px", borderBottom: "1px solid " + T.bdr + "20" } }, "")
+                  );
+                }) : null
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function SpendTracker({ data, onUpdate }) {
   var [selProj, setSelProj] = useState("all");
   var [showForm, setShowForm] = useState(false);
@@ -1166,6 +1341,7 @@ function App() {
     { id: "dashboard", l: "Dashboard", i: LayoutDashboard },
     { id: "pipeline", l: "Pipeline", i: ListChecks },
     { id: "spend", l: "Spend Tracker", i: Receipt },
+    { id: "recon", l: "Reconciliation", i: AlertTriangle },
     { id: "approvals", l: "Approvals", i: CheckCircle2 },
     { id: "submit", l: "New Request", i: PlusCircle },
     { id: "exports", l: "Export", i: Download },
@@ -1238,6 +1414,7 @@ function App() {
         {view === "dashboard" && <Dashboard data={data} />}
         {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
         {view === "spend" && <SpendTracker data={data} onUpdate={persist} />}
+        {view === "recon" && <Reconciliation data={data} />}
         {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
         {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
         {view === "exports" && <ExportPage data={data} />}
