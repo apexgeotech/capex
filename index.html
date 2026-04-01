@@ -173,7 +173,21 @@ var SEED = [
 
 var SK = "capex-data-v4";
 var API_URL = "http://104.236.235.206:8100";
-var CURRENT_USER = "Brad Selby";
+var USERS = [
+  { name: "Brad Selby", title: "VP of IT", initials: "BS" },
+  { name: "Brad Sostack", title: "VP of Transformation", initials: "BSo" },
+  { name: "Tom Naddy", title: "CFO", initials: "TN" },
+  { name: "Gene Swindell", title: "President", initials: "GS" },
+  { name: "Michael J. Puleo", title: "CEO", initials: "MP" },
+  { name: "Brad Russell", title: "Plant Manager - BV", initials: "BR" },
+  { name: "Dane Morgan", title: "Plant Manager - KG", initials: "DM" },
+  { name: "Russell Finch", title: "Plant Manager - WB", initials: "RF" },
+  { name: "Jarvis Black", title: "IT Coordinator", initials: "JB" },
+  { name: "Mary Beth Moyer", title: "Finance", initials: "MB" },
+  { name: "Katrina Middlebrooks", title: "Finance - KG", initials: "KM" },
+  { name: "Alec Pollard", title: "IT Coordinator - KG", initials: "AP" }
+];
+var CURRENT_USER = USERS[0].name;
 
 function initData() {
   return {
@@ -868,7 +882,7 @@ function SpendTracker({ data, onUpdate }) {
     var projName = proj ? proj.n : nv.projectId;
     var nd = Object.assign({}, data, {
       expenses: newExpenses,
-      log: data.log.concat([{ ts: now(), action: "Expense logged: " + fF(ne.amount) + " to " + ne.vendor + " for " + projName + " (" + nv.projectId + ")", user: "Brad Selby", comment: ne.desc }])
+      log: data.log.concat([{ ts: now(), action: "Expense logged: " + fF(ne.amount) + " to " + ne.vendor + " for " + projName + " (" + nv.projectId + ")", user: CURRENT_USER, comment: ne.desc }])
     });
     onUpdate(nd);
     setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
@@ -1035,6 +1049,7 @@ function App() {
   var [sel, setSel] = useState(null);
   var [loading, setLoading] = useState(true);
   var [ss, setSs] = useState(null);
+  var [curUser, setCurUser] = useState(USERS[0]);
 
   useEffect(function() {
     (async function() {
@@ -1099,7 +1114,7 @@ function App() {
     var proj = Object.assign({}, np, { id: id, st: first, bg: np.bg });
     var nd = {
       projects: data.projects.concat([proj]),
-      log: data.log.concat([{ ts: now(), action: "Submitted: " + np.n + " (" + id + ") - " + fF(np.b), user: "Brad Selby", comment: np.justification || "" }]),
+      log: data.log.concat([{ ts: now(), action: "Submitted: " + np.n + " (" + id + ") - " + fF(np.b), user: CURRENT_USER, comment: np.justification || "" }]),
       nextNum: data.nextNum + 1,
       expenses: data.expenses || []
     };
@@ -1122,7 +1137,7 @@ function App() {
     var lbl = action === "approve" ? "Approved" : action === "conditional" ? "Approved with Condition" : action === "reject" ? "Rejected" : "Put on Hold";
     var nd = {
       projects: newP,
-      log: data.log.concat([{ ts: now(), action: lbl + ": " + proj.n + " (" + pid + ") from " + proj.st, user: "Brad Selby", comment: comment || "" }]),
+      log: data.log.concat([{ ts: now(), action: lbl + ": " + proj.n + " (" + pid + ") from " + proj.st, user: CURRENT_USER, comment: comment || "" }]),
       nextNum: data.nextNum,
       expenses: data.expenses || []
     };
@@ -1207,10 +1222,13 @@ function App() {
             <RefreshCw size={10} /> Reset Data
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 6, background: T.bg3, border: "1px solid " + T.bdr, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: T.blu }}>BS</div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600 }}>Brad Selby</div>
-              <div style={{ fontSize: 9, color: T.dim }}>VP of IT</div>
+            <div style={{ width: 30, height: 30, borderRadius: 6, background: T.bg3, border: "1px solid " + T.bdr, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: T.blu }}>{curUser.initials}</div>
+            <div style={{ flex: 1 }}>
+              <select value={curUser.name} onChange={function(e) { var u = USERS.find(function(x) { return x.name === e.target.value; }); if (u) { setCurUser(u); CURRENT_USER = u.name; } }}
+                style={{ width: "100%", fontSize: 10, fontWeight: 600, color: T.tx, background: "transparent", border: "none", outline: "none", fontFamily: T.ff, cursor: "pointer", padding: 0 }}>
+                {USERS.map(function(u) { return <option key={u.name} value={u.name} style={{ background: T.bg2, color: T.tx }}>{u.name}</option>; })}
+              </select>
+              <div style={{ fontSize: 8, color: T.dim }}>{curUser.title}</div>
             </div>
           </div>
         </div>
