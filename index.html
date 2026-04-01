@@ -820,12 +820,45 @@ function ExportPage({ data }) {
 function HowToPage() {
   var card = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", marginBottom: 12 };
   var sh = { fontSize: 12, fontWeight: 700, color: T.amb, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" };
+  var pS = { fontSize: 10, color: T.tx2, margin: "0 0 8px", lineHeight: "1.6" };
   return (
     <div style={{ maxWidth: 760 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>How To</h2>
+
       <div style={card}>
-        <div style={sh}>Routing</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={sh}>Getting Started</div>
+        <p style={pS}>1. Select your name from the dropdown in the bottom-left corner of the sidebar. This ensures all actions (approvals, submissions, expense entries) are attributed to you.</p>
+        <p style={pS}>2. The system runs on a shared backend. Changes you make are visible to everyone in real time. The status indicator in the bottom-left shows "Saved (shared)" in green when connected to the server, or "Saved (local)" in amber if offline.</p>
+        <p style={pS}>3. Your URL: https://apexgeotech.github.io/capex</p>
+      </div>
+
+      <div style={card}>
+        <div style={sh}>Screens</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[
+            ["Dashboard", T.blu, "Overview of total budget, spend, project counts by status, category breakdown, and quarterly spend chart."],
+            ["Pipeline", T.grn, "All 29 projects in a sortable table. Filter by status buttons, approver dropdown (\"Waiting on: Tom Naddy\"), or search by site/name/owner."],
+            ["Spend Tracker", T.amb, "Log expenses against approved projects. Enter vendor, amount, PO #, invoice #, date, and receipt status. Shows budget vs. actuals with utilization bar."],
+            ["Reconciliation", T.red, "Side-by-side comparison of this system vs. Finance tracker (Mary Beth). Shows matches, mismatches, and unbudgeted spend. Click a project to expand vendor payment details."],
+            ["13-Week Cash Flow", T.org, "Rolling 13-week CapEx outflow forecast. Distributes quarterly budgets into weekly buckets. Filter by site. Shows peak weeks, averages, and cumulative spend. Bar chart + detail table."],
+            ["Approvals", T.pur, "Queue of projects at your approval stage. Approve, approve with conditions, reject (comment required), or place on hold."],
+            ["New Request", T.org, "Submit a new CapEx request. Fill in project details, ROI/savings fields, urgency, risk, and link SharePoint documents."],
+            ["Export", T.blu, "Download project data as CSV or JSON for reporting."],
+            ["Activity", T.grn, "Full audit trail of every action taken in the system with timestamps and user attribution."]
+          ].map(function(item) {
+            return (
+              <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 14px", borderLeft: "3px solid " + item[1] }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: item[1], marginBottom: 4 }}>{item[0]}</div>
+                <div style={{ fontSize: 9, color: T.tx2, lineHeight: "1.5" }}>{item[2]}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={sh}>Approval Routing</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
           {[["IT Route", T.blu, "IT Infra, IT Equipment, Software", "PM > VP IT > CFO > President > CEO"],
             ["Ops Route", T.pur, "Production Equip, Tooling, Maintenance", "PM > VP Transformation > CFO > President > CEO"],
             ["Cross-Functional", T.amb, "Physical Security, Facility", "PM > VP IT > VP Transformation > CFO > President > CEO"]
@@ -839,10 +872,8 @@ function HowToPage() {
             );
           })}
         </div>
-      </div>
-      <div style={card}>
         <div style={sh}>Approval Chain</div>
-        {[["1","Project Manager","Validates scope",T.grn],["2","Brad Selby (VP IT)","IT + Cross-Functional",T.blu],["3","Brad Sostack (VP Transformation)","Ops + Cross-Functional",T.pur],["4","Tom Naddy (CFO)","Financial review",T.org],["5","Gene Swindell (President)","Operational sign-off",T.amb],["6","Michael J. Puleo (CEO)","Executive approval",T.red],["7","Gemspring (Board)","> $250K required",T.pur]].map(function(item) {
+        {[["1","Project Manager","Validates scope",T.grn],["2","Brad Selby (VP IT)","IT + Cross-Functional",T.blu],["3","Brad Sostack (VP Transformation)","Ops + Cross-Functional",T.pur],["4","Tom Naddy (CFO)","Financial review",T.org],["5","Gene Swindell (President)","Operational sign-off",T.amb],["6","Michael J. Puleo (CEO)","Executive approval",T.red],["7","Gemspring (Board)","Unbudgeted > $20K",T.pur]].map(function(item) {
           return (
             <div key={item[0]} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <div style={{ width: 22, height: 22, borderRadius: "50%", background: item[3] + "20", border: "1px solid " + item[3] + "40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: item[3], flexShrink: 0 }}>{item[0]}</div>
@@ -854,6 +885,7 @@ function HowToPage() {
           );
         })}
       </div>
+
       <div style={card}>
         <div style={sh}>DoA Thresholds (Gemspring Matrix)</div>
         <div style={{ fontSize: 10, color: T.dim, marginBottom: 10 }}>Source: OCI Delegation of Authority Matrix (11/11/2025). Budgeted vs unbudgeted determines which chain applies.</div>
@@ -884,12 +916,177 @@ function HowToPage() {
           </div>
         </div>
       </div>
+
+      <div style={card}>
+        <div style={sh}>Common Tasks</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[
+            ["Approve a project", "Go to Approvals. Select your name first. Click Approve, Conditional, Reject (requires comment), or Hold."],
+            ["Submit a new request", "Go to New Request. Fill in all fields. It automatically routes based on category."],
+            ["Log an expense", "Go to Spend Tracker. Click \"+ Log Expense\". Select the project, enter vendor/amount/PO. Paste the SharePoint receipt URL to link the document."],
+            ["Find what's stuck", "Go to Pipeline. Use the approver dropdown to filter by who needs to act next."],
+            ["Filter by site", "Go to Pipeline. Type a site name (Brookville, Kilgore, etc.) in the search box."],
+            ["Review budget vs. Finance", "Go to Reconciliation. Filter by Mismatch to see discrepancies needing resolution."],
+            ["View cash flow forecast", "Go to 13-Week CF. Shows weekly CapEx outflows for the next quarter. Filter by site to see location-specific cash needs."]
+          ].map(function(item) {
+            return (
+              <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 6, padding: "10px 12px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.tx, marginBottom: 3 }}>{item[0]}</div>
+                <div style={{ fontSize: 9, color: T.dim, lineHeight: "1.5" }}>{item[1]}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div style={{ background: T.bg2, border: "1px solid " + T.amb + "40", borderRadius: 10, padding: "14px 18px", borderLeft: "3px solid " + T.amb }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <AlertTriangle size={13} color={T.amb} />
           <span style={{ fontSize: 11, fontWeight: 700, color: T.amb }}>Questions?</span>
         </div>
-        <p style={{ fontSize: 10, color: T.tx2, margin: 0 }}>System: Brad Selby · Budget: Tom Naddy · Ops: Brad Sostack</p>
+        <p style={{ fontSize: 10, color: T.tx2, margin: 0 }}>System: Brad Selby (bselby@apexgeotech.com) | Budget: Tom Naddy | Ops: Brad Sostack</p>
+      </div>
+    </div>
+  );
+}
+
+function CashFlow({ data }) {
+  var [siteFilter, setSiteFilter] = useState("All");
+
+  var today = new Date();
+  var dayOfWeek = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  var weeks = [];
+  for (var w = 0; w < 13; w++) {
+    var start = new Date(monday);
+    start.setDate(monday.getDate() + w * 7);
+    var end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    var mo = start.getMonth();
+    var qtr = mo < 3 ? 0 : mo < 6 ? 1 : mo < 9 ? 2 : 3;
+    weeks.push({
+      idx: w,
+      label: "W" + (w + 1),
+      startDate: (start.getMonth() + 1) + "/" + start.getDate(),
+      endDate: (end.getMonth() + 1) + "/" + end.getDate(),
+      quarter: qtr,
+      forecast: 0,
+      projects: []
+    });
+  }
+
+  var projects = data.projects.filter(function(p) {
+    if (siteFilter !== "All" && p.s !== siteFilter) return false;
+    return ["Approved", "In Progress"].indexOf(p.st) >= 0;
+  });
+
+  var qWeeks = [0, 0, 0, 0];
+  weeks.forEach(function(wk) { qWeeks[wk.quarter]++; });
+
+  projects.forEach(function(p) {
+    var q = p.q || [0, 0, 0, 0];
+    weeks.forEach(function(wk) {
+      var qBudget = q[wk.quarter] || 0;
+      var weeksInQ = qWeeks[wk.quarter];
+      if (weeksInQ > 0 && qBudget > 0) {
+        var weeklyAmt = Math.round(qBudget / weeksInQ);
+        wk.forecast += weeklyAmt;
+        wk.projects.push({ name: p.n, amount: weeklyAmt });
+      }
+    });
+  });
+
+  var cumulative = 0;
+  var chartData = weeks.map(function(wk) {
+    cumulative += wk.forecast;
+    return { name: wk.label, week: wk.startDate + " - " + wk.endDate, forecast: wk.forecast, cumulative: cumulative };
+  });
+
+  var totalForecast = weeks.reduce(function(s, wk) { return s + wk.forecast; }, 0);
+  var peakWeek = weeks.reduce(function(max, wk) { return wk.forecast > max.forecast ? wk : max; }, weeks[0]);
+  var avgWeekly = Math.round(totalForecast / 13);
+
+  var sites = ["All"].concat(Array.from(new Set(data.projects.map(function(p) { return p.s; }))));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>13-Week Cash Flow Forecast</div>
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>Weekly CapEx outflow projection based on quarterly budget allocations</div>
+        </div>
+        <select value={siteFilter} onChange={function(e) { setSiteFilter(e.target.value); }}
+          style={{ padding: "6px 10px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 10, outline: "none", background: T.bg3, color: siteFilter !== "All" ? T.amb : T.dim, fontFamily: T.ff }}>
+          {sites.map(function(s) { return React.createElement("option", { key: s, value: s, style: { background: T.bg2 } }, s); })}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fmt(totalForecast)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>13-Week Total</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.blu, fontFamily: T.ff }}>{fmt(avgWeekly)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Avg / Week</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.red, fontFamily: T.ff }}>{fmt(peakWeek.forecast)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Peak Week ({peakWeek.label})</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.grn, fontFamily: T.ff }}>{projects.length}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Active Projects</div>
+        </div>
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 16px", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.tx, fontFamily: T.ff, marginBottom: 12 }}>Weekly Forecast + Cumulative</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.bdr} />
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} />
+            <YAxis yAxisId="left" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} tickFormatter={fmt} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} tickFormatter={fmt} />
+            <Tooltip contentStyle={tipStyle} formatter={function(v) { return fF(v); }} />
+            <Bar yAxisId="left" dataKey="forecast" fill={T.blu} radius={[3, 3, 0, 0]} name="Weekly Forecast" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: T.bg3 }}>
+              {["Week", "Dates", "Qtr", "Forecast", "Cumulative", "Top Projects"].map(function(h) {
+                return React.createElement("th", { key: h, style: { padding: "8px 10px", textAlign: "left", fontSize: 9, fontWeight: 600, color: T.dim, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid " + T.bdr } }, h);
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map(function(wk, i) {
+              var cum = 0;
+              for (var j = 0; j <= i; j++) cum += weeks[j].forecast;
+              var topP = wk.projects.slice().sort(function(a, b) { return b.amount - a.amount; }).slice(0, 3);
+              return React.createElement("tr", {
+                key: wk.idx,
+                style: { background: i === 0 ? T.bg3 + "60" : "transparent" },
+                onMouseEnter: function(e) { e.currentTarget.style.background = T.bg3; },
+                onMouseLeave: function(e) { e.currentTarget.style.background = i === 0 ? T.bg3 + "60" : "transparent"; }
+              },
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? T.amb : T.tx, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.label + (i === 0 ? " (current)" : "")),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.startDate + " - " + wk.endDate),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, "Q" + (wk.quarter + 1)),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 11, fontWeight: 700, color: wk.forecast > avgWeekly * 1.5 ? T.red : wk.forecast > 0 ? T.amb : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.forecast > 0 ? fF(wk.forecast) : "\u2014"),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, fontWeight: 600, color: T.blu, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, fF(cum)),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 9, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, topP.map(function(tp) { return tp.name + " (" + fmt(tp.amount) + ")"; }).join(", ") || "\u2014")
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1021,7 +1218,7 @@ function Reconciliation({ data }) {
 function SpendTracker({ data, onUpdate }) {
   var [selProj, setSelProj] = useState("all");
   var [showForm, setShowForm] = useState(false);
-  var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+  var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false, receiptUrl: "" });
 
   var expenses = (data && data.expenses) ? data.expenses : [];
   var activeProjects = data.projects.filter(function(p) { return ["Approved","In Progress","Complete"].indexOf(p.st) >= 0; });
@@ -1050,7 +1247,8 @@ function SpendTracker({ data, onUpdate }) {
       po: nv.po,
       inv: nv.inv,
       projectId: nv.projectId,
-      hasReceipt: nv.hasReceipt
+      hasReceipt: nv.hasReceipt,
+      receiptUrl: nv.receiptUrl
     };
     var newExpenses = [ne].concat(expenses);
     var proj = data.projects.find(function(p) { return p.id === nv.projectId; });
@@ -1060,7 +1258,7 @@ function SpendTracker({ data, onUpdate }) {
       log: data.log.concat([{ ts: now(), action: "Expense logged: " + fF(ne.amount) + " to " + ne.vendor + " for " + projName + " (" + nv.projectId + ")", user: CURRENT_USER, comment: ne.desc }])
     });
     onUpdate(nd);
-    setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+    setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false, receiptUrl: "" });
     setShowForm(false);
   }
 
@@ -1124,6 +1322,10 @@ function SpendTracker({ data, onUpdate }) {
                 <input type="checkbox" checked={nv.hasReceipt} onChange={function(e) { setField("hasReceipt", e.target.checked); }} />
                 Receipt attached
               </label>
+            </div>
+            <div>
+              <label style={lS}>Receipt Link (SharePoint)</label>
+              <input style={iS} value={nv.receiptUrl} onChange={function(e) { setField("receiptUrl", e.target.value); if (e.target.value) setField("hasReceipt", true); }} placeholder="https://ocidiv0.sharepoint.com/..." />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end" }}>
               <button onClick={handleAdd} style={{
@@ -1199,8 +1401,10 @@ function SpendTracker({ data, onUpdate }) {
                   <td style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: T.amb, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{fF(e.amount)}</td>
                   <td style={{ padding: "8px 12px", borderBottom: "1px solid " + T.bdr + "55" }}>
                     {e.hasReceipt
-                      ? <span style={{ color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600 }}>Attached</span>
-                      : <span style={{ color: T.red + "88", fontSize: 10, fontFamily: T.ff }}>Missing</span>
+                      ? (e.receiptUrl
+                        ? React.createElement("a", { href: e.receiptUrl, target: "_blank", rel: "noopener", style: { color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600, textDecoration: "none" } }, "View")
+                        : React.createElement("span", { style: { color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600 } }, "Attached"))
+                      : React.createElement("span", { style: { color: T.red + "88", fontSize: 10, fontFamily: T.ff } }, "Missing")
                     }
                   </td>
                 </tr>
@@ -1342,6 +1546,7 @@ function App() {
     { id: "pipeline", l: "Pipeline", i: ListChecks },
     { id: "spend", l: "Spend Tracker", i: Receipt },
     { id: "recon", l: "Reconciliation", i: AlertTriangle },
+    { id: "cashflow", l: "13-Week CF", i: TrendingUp },
     { id: "approvals", l: "Approvals", i: CheckCircle2 },
     { id: "submit", l: "New Request", i: PlusCircle },
     { id: "exports", l: "Export", i: Download },
@@ -1415,6 +1620,7 @@ function App() {
         {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
         {view === "spend" && <SpendTracker data={data} onUpdate={persist} />}
         {view === "recon" && <Reconciliation data={data} />}
+        {view === "cashflow" && <CashFlow data={data} />}
         {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
         {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
         {view === "exports" && <ExportPage data={data} />}
