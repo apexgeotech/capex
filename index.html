@@ -637,14 +637,22 @@ function SubmitForm({ onSubmit }) {
   );
 }
 
-function DetailPanel({ p, onClose, onAction }) {
+function DetailPanel({ p, onClose, onAction, onComment }) {
   var [cmt, setCmt] = useState("");
+  var [newUpdate, setNewUpdate] = useState("");
   if (!p) return null;
   var steps = getChainSteps(p.c, p.st, p.b, p.bg !== false);
   steps[0].nm = p.o;
   var r = getRoute(p.c);
   var isPend = p.st.startsWith("Pending");
   var isBudgeted = p.bg !== false;
+  var updates = p.updates || [];
+
+  function handlePostUpdate() {
+    if (!newUpdate.trim()) return;
+    onComment(p.id, newUpdate.trim());
+    setNewUpdate("");
+  }
 
   return (
     <div style={{ position: "fixed", top: 0, right: 0, width: 420, height: "100vh", background: T.bg2, borderLeft: "1px solid " + T.bdr, boxShadow: "-8px 0 28px rgba(0,0,0,0.35)", zIndex: 100, overflowY: "auto", padding: "20px 24px" }}>
@@ -746,6 +754,31 @@ function DetailPanel({ p, onClose, onAction }) {
             );
           })}
         </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 9 }}>Updates</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <input placeholder="Post an update..." value={newUpdate} onChange={function(e) { setNewUpdate(e.target.value); }}
+            onKeyDown={function(e) { if (e.key === "Enter") handlePostUpdate(); }}
+            style={{ flex: 1, padding: "7px 10px", border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff, boxSizing: "border-box" }} />
+          <button onClick={handlePostUpdate} style={{ padding: "7px 14px", background: newUpdate.trim() ? T.blu + "20" : T.bg3, color: newUpdate.trim() ? T.blu : T.dim, border: "1px solid " + (newUpdate.trim() ? T.blu + "50" : T.bdr), borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: newUpdate.trim() ? "pointer" : "default", fontFamily: T.ff }}>Post</button>
+        </div>
+        {updates.length > 0 ? updates.slice().reverse().map(function(u, i) {
+          var d = new Date(u.ts);
+          var ts = (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+          return (
+            <div key={i} style={{ padding: "8px 10px", background: T.bg3, borderRadius: 6, border: "1px solid " + T.bdr, marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: T.blu }}>{u.user}</span>
+                <span style={{ fontSize: 8, color: T.dim }}>{ts}</span>
+              </div>
+              <div style={{ fontSize: 10, color: T.tx2, lineHeight: "1.5" }}>{u.text}</div>
+            </div>
+          );
+        }) : (
+          <div style={{ padding: "12px 0", textAlign: "center", fontSize: 9, color: T.dim }}>No updates yet</div>
+        )}
       </div>
     </div>
   );
@@ -1537,6 +1570,24 @@ function App() {
     setSel(null);
   }, [persist]);
 
+  var handleComment = useCallback(function(pid, text) {
+    var newP = data.projects.map(function(p) {
+      if (p.id !== pid) return p;
+      var existing = p.updates || [];
+      var entry = { ts: now(), user: CURRENT_USER, text: text };
+      return Object.assign({}, p, { updates: existing.concat([entry]) });
+    });
+    var proj = data.projects.find(function(p) { return p.id === pid; });
+    var nd = {
+      projects: newP,
+      log: data.log.concat([{ ts: now(), action: "Update posted on " + proj.n + " (" + pid + ")", user: CURRENT_USER, comment: text }]),
+      nextNum: data.nextNum,
+      expenses: data.expenses || []
+    };
+    persist(nd);
+    if (sel && sel.id === pid) setSel(newP.find(function(p) { return p.id === pid; }));
+  }, [data, sel, persist]);
+
   if (loading || !data) {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: T.bg, fontFamily: T.ff, color: T.dim }}>Loading...</div>;
   }
@@ -1628,7 +1679,7 @@ function App() {
         {view === "howto" && <HowToPage />}
       </div>
 
-      {sel && <DetailPanel p={sel} onClose={function() { setSel(null); }} onAction={handleAction} />}
+      {sel && <DetailPanel p={sel} onClose={function() { setSel(null); }} onAction={handleAction} onComment={handleComment} />}
     </div>
   );
 }
