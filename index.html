@@ -22,7 +22,7 @@
 <div id="root"></div>
 <script type="text/babel">
 var { useState, useEffect, useCallback } = React;
-var { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = Recharts;
+var { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } = Recharts;
 
 /* Inline SVG Icon Components */
 function SvgIcon(props) {
@@ -51,6 +51,7 @@ function Database(p) { return React.createElement(SvgIcon, p, React.createElemen
 function Activity(p) { return React.createElement(SvgIcon, p, React.createElement("polyline",{points:"22 12 18 12 15 21 9 3 6 12 2 12"})); }
 function MessageSquare(p) { return React.createElement(SvgIcon, p, React.createElement("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})); }
 function Receipt(p) { return React.createElement(SvgIcon, p, React.createElement("path",{d:"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"}), React.createElement("path",{d:"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"}), React.createElement("path",{d:"M12 17.5v-11"})); }
+function Briefcase(p) { return React.createElement(SvgIcon, p, React.createElement("rect",{x:"2",y:"7",width:"20",height:"14",rx:"2",ry:"2"}), React.createElement("path",{d:"M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"})); }
 
 const T = {
   bg: "#1C2333", bg2: "#232D40", bg3: "#2A3650", bdr: "#3A4A62",
@@ -576,9 +577,13 @@ function SubmitForm({ onSubmit }) {
   var iS = { width: "100%", padding: "7px 11px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 11, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff, boxSizing: "border-box" };
   var lS = { fontSize: 9, fontWeight: 600, color: T.dim, marginBottom: 3, display: "block", textTransform: "uppercase", letterSpacing: "0.05em" };
 
+  var costVal = parseFloat(f.cost) || 0;
+  var roiRequired = costVal > 25000;
+
   function go() {
     if (!f.name || !f.owner || !f.cost) return;
     var cost = parseFloat(f.cost) || 0;
+    if (cost > 25000 && !f.roi) return;
     var qi = { "Q1 2026": 0, "Q2 2026": 1, "Q3 2026": 2, "Q4 2026": 3 }[f.quarter] || 1;
     var qa = [0, 0, 0, 0]; qa[qi] = cost;
     var isBudgeted = f.budgeted === "Budgeted";
@@ -598,7 +603,7 @@ function SubmitForm({ onSubmit }) {
     );
   }
 
-  var ok = f.name && f.owner && f.cost;
+  var ok = f.name && f.owner && f.cost && (!roiRequired || f.roi);
   return (
     <div>
       <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>Submit CapEx Request</h2>
@@ -613,7 +618,7 @@ function SubmitForm({ onSubmit }) {
           <div><label style={lS}>Target Quarter</label><select style={iS} value={f.quarter} onChange={function(e) { up("quarter", e.target.value); }}>{["Q1 2026","Q2 2026","Q3 2026","Q4 2026"].map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
           <div><label style={lS}>Budget Status *</label><select style={iS} value={f.budgeted} onChange={function(e) { up("budgeted", e.target.value); }}><option>Budgeted</option><option>Unbudgeted</option></select></div>
           <div><label style={lS}>Urgency</label><select style={iS} value={f.urgency} onChange={function(e) { up("urgency", e.target.value); }}>{["Standard","High - Current Quarter","Critical - Safety/Compliance","Emergency"].map(function(o) { return <option key={o}>{o}</option>; })}</select></div>
-          <div><label style={lS}>Expected ROI / Payback</label><input style={iS} value={f.roi} onChange={function(e) { up("roi", e.target.value); }} placeholder="e.g., 18 months, 2.5x, $50K/yr savings" /></div>
+          <div><label style={lS}>{roiRequired ? "Expected ROI / Payback *" : "Expected ROI / Payback"}</label><input style={Object.assign({}, iS, roiRequired && !f.roi ? { borderColor: T.amb } : {})} value={f.roi} onChange={function(e) { up("roi", e.target.value); }} placeholder={roiRequired ? "Required for requests over $25K" : "e.g., 18 months, 2.5x, $50K/yr savings"} /></div>
           <div><label style={lS}>Expected Annual Savings ($)</label><input style={iS} type="number" value={f.savings} onChange={function(e) { up("savings", e.target.value); }} placeholder="0" /></div>
           <div style={{ gridColumn: "1/-1" }}><label style={lS}>Risk if Not Approved / Delayed</label><textarea style={Object.assign({}, iS, { height: 44, resize: "vertical" })} value={f.risk} onChange={function(e) { up("risk", e.target.value); }} placeholder="What happens if this doesn't get done..." /></div>
           <div style={{ gridColumn: "1/-1" }}><label style={lS}>Business Justification *</label><textarea style={Object.assign({}, iS, { height: 60, resize: "vertical" })} value={f.justification} onChange={function(e) { up("justification", e.target.value); }} /></div>
@@ -629,6 +634,12 @@ function SubmitForm({ onSubmit }) {
             )}
           </div>
         )}
+        {roiRequired && !f.roi && (
+          <div style={{ marginTop: 10, padding: "8px 14px", background: T.amb + "12", border: "1px solid " + T.amb + "30", borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: T.amb, fontWeight: 600 }}>ROI / Payback analysis required for requests over $25,000</div>
+            <div style={{ fontSize: 9, color: T.dim, marginTop: 2 }}>Per CFO policy: ROI field is required above $25K, optional below.</div>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <button onClick={go} style={{ padding: "7px 20px", background: ok ? T.blu : T.bg3, color: ok ? T.bg : T.dim, border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: ok ? "pointer" : "not-allowed", fontFamily: T.ff }}>Submit for Approval</button>
         </div>
@@ -637,14 +648,22 @@ function SubmitForm({ onSubmit }) {
   );
 }
 
-function DetailPanel({ p, onClose, onAction }) {
+function DetailPanel({ p, onClose, onAction, onComment }) {
   var [cmt, setCmt] = useState("");
+  var [newUpdate, setNewUpdate] = useState("");
   if (!p) return null;
   var steps = getChainSteps(p.c, p.st, p.b, p.bg !== false);
   steps[0].nm = p.o;
   var r = getRoute(p.c);
   var isPend = p.st.startsWith("Pending");
   var isBudgeted = p.bg !== false;
+  var updates = p.updates || [];
+
+  function handlePostUpdate() {
+    if (!newUpdate.trim()) return;
+    onComment(p.id, newUpdate.trim());
+    setNewUpdate("");
+  }
 
   return (
     <div style={{ position: "fixed", top: 0, right: 0, width: 420, height: "100vh", background: T.bg2, borderLeft: "1px solid " + T.bdr, boxShadow: "-8px 0 28px rgba(0,0,0,0.35)", zIndex: 100, overflowY: "auto", padding: "20px 24px" }}>
@@ -747,6 +766,31 @@ function DetailPanel({ p, onClose, onAction }) {
           })}
         </div>
       </div>
+
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, marginBottom: 9 }}>Updates</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <input placeholder="Post an update..." value={newUpdate} onChange={function(e) { setNewUpdate(e.target.value); }}
+            onKeyDown={function(e) { if (e.key === "Enter") handlePostUpdate(); }}
+            style={{ flex: 1, padding: "7px 10px", border: "1px solid " + T.bdr, borderRadius: 5, fontSize: 10, outline: "none", background: T.bg3, color: T.tx, fontFamily: T.ff, boxSizing: "border-box" }} />
+          <button onClick={handlePostUpdate} style={{ padding: "7px 14px", background: newUpdate.trim() ? T.blu + "20" : T.bg3, color: newUpdate.trim() ? T.blu : T.dim, border: "1px solid " + (newUpdate.trim() ? T.blu + "50" : T.bdr), borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: newUpdate.trim() ? "pointer" : "default", fontFamily: T.ff }}>Post</button>
+        </div>
+        {updates.length > 0 ? updates.slice().reverse().map(function(u, i) {
+          var d = new Date(u.ts);
+          var ts = (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+          return (
+            <div key={i} style={{ padding: "8px 10px", background: T.bg3, borderRadius: 6, border: "1px solid " + T.bdr, marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: T.blu }}>{u.user}</span>
+                <span style={{ fontSize: 8, color: T.dim }}>{ts}</span>
+              </div>
+              <div style={{ fontSize: 10, color: T.tx2, lineHeight: "1.5" }}>{u.text}</div>
+            </div>
+          );
+        }) : (
+          <div style={{ padding: "12px 0", textAlign: "center", fontSize: 9, color: T.dim }}>No updates yet</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -820,12 +864,46 @@ function ExportPage({ data }) {
 function HowToPage() {
   var card = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", marginBottom: 12 };
   var sh = { fontSize: 12, fontWeight: 700, color: T.amb, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" };
+  var pS = { fontSize: 10, color: T.tx2, margin: "0 0 8px", lineHeight: "1.6" };
   return (
     <div style={{ maxWidth: 760 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, color: T.tx, margin: "0 0 20px" }}>How To</h2>
+
       <div style={card}>
-        <div style={sh}>Routing</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={sh}>Getting Started</div>
+        <p style={pS}>1. Select your name from the dropdown in the bottom-left corner of the sidebar. This ensures all actions (approvals, submissions, expense entries) are attributed to you.</p>
+        <p style={pS}>2. The system runs on a shared backend. Changes you make are visible to everyone in real time. The status indicator in the bottom-left shows "Saved (shared)" in green when connected to the server, or "Saved (local)" in amber if offline.</p>
+        <p style={pS}>3. Your URL: https://apexgeotech.github.io/capex</p>
+      </div>
+
+      <div style={card}>
+        <div style={sh}>Screens</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[
+            ["Board Summary", T.org, "Executive-level investment governance view built for board packages. Total budget, YTD spend, forecast (EAC), variance, project health heat map, top 5 by spend, site allocation breakdown, pending approvals, and governance controls summary."],
+            ["Dashboard", T.blu, "Overview of total budget, spend, project counts by status, category breakdown, and quarterly spend chart."],
+            ["Pipeline", T.grn, "All 29 projects in a sortable table. Filter by status buttons, approver dropdown (\"Waiting on: Tom Naddy\"), or search by site/name/owner."],
+            ["Spend Tracker", T.amb, "Finance-managed actuals entry. Project owners forward invoices to Finance for recording. Enter vendor, amount, PO #, invoice #, date, and receipt status. Shows budget vs. actuals with utilization bar."],
+            ["Reconciliation", T.red, "Side-by-side comparison of this system vs. Finance tracker (Mary Beth). Shows matches, mismatches, and unbudgeted spend. Click a project to expand vendor payment details."],
+            ["13-Week Cash Flow", T.org, "Rolling 13-week CapEx outflow forecast. Distributes quarterly budgets into weekly buckets. Filter by site. Shows peak weeks, averages, and cumulative spend. Bar chart + detail table."],
+            ["Approvals", T.pur, "Queue of projects at your approval stage. Approve, approve with conditions, reject (comment required), or place on hold."],
+            ["New Request", T.org, "Submit a new CapEx request. Fill in project details, urgency, risk, and link SharePoint documents. ROI/payback analysis is required for requests over $25K (optional below)."],
+            ["Export", T.blu, "Download project data as CSV or JSON for reporting."],
+            ["Activity", T.grn, "Full audit trail of every action taken in the system with timestamps and user attribution."]
+          ].map(function(item) {
+            return (
+              <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 14px", borderLeft: "3px solid " + item[1] }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: item[1], marginBottom: 4 }}>{item[0]}</div>
+                <div style={{ fontSize: 9, color: T.tx2, lineHeight: "1.5" }}>{item[2]}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={sh}>Approval Routing</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
           {[["IT Route", T.blu, "IT Infra, IT Equipment, Software", "PM > VP IT > CFO > President > CEO"],
             ["Ops Route", T.pur, "Production Equip, Tooling, Maintenance", "PM > VP Transformation > CFO > President > CEO"],
             ["Cross-Functional", T.amb, "Physical Security, Facility", "PM > VP IT > VP Transformation > CFO > President > CEO"]
@@ -839,10 +917,8 @@ function HowToPage() {
             );
           })}
         </div>
-      </div>
-      <div style={card}>
         <div style={sh}>Approval Chain</div>
-        {[["1","Project Manager","Validates scope",T.grn],["2","Brad Selby (VP IT)","IT + Cross-Functional",T.blu],["3","Brad Sostack (VP Transformation)","Ops + Cross-Functional",T.pur],["4","Tom Naddy (CFO)","Financial review",T.org],["5","Gene Swindell (President)","Operational sign-off",T.amb],["6","Michael J. Puleo (CEO)","Executive approval",T.red],["7","Gemspring (Board)","> $250K required",T.pur]].map(function(item) {
+        {[["1","Project Manager","Validates scope",T.grn],["2","Brad Selby (VP IT)","IT + Cross-Functional",T.blu],["3","Brad Sostack (VP Transformation)","Ops + Cross-Functional",T.pur],["4","Tom Naddy (CFO)","Financial review",T.org],["5","Gene Swindell (President)","Operational sign-off",T.amb],["6","Michael J. Puleo (CEO)","Executive approval",T.red],["7","Gemspring (Board)","Unbudgeted > $20K",T.pur]].map(function(item) {
           return (
             <div key={item[0]} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <div style={{ width: 22, height: 22, borderRadius: "50%", background: item[3] + "20", border: "1px solid " + item[3] + "40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: item[3], flexShrink: 0 }}>{item[0]}</div>
@@ -854,6 +930,7 @@ function HowToPage() {
           );
         })}
       </div>
+
       <div style={card}>
         <div style={sh}>DoA Thresholds (Gemspring Matrix)</div>
         <div style={{ fontSize: 10, color: T.dim, marginBottom: 10 }}>Source: OCI Delegation of Authority Matrix (11/11/2025). Budgeted vs unbudgeted determines which chain applies.</div>
@@ -884,12 +961,177 @@ function HowToPage() {
           </div>
         </div>
       </div>
+
+      <div style={card}>
+        <div style={sh}>Common Tasks</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[
+            ["Approve a project", "Go to Approvals. Select your name first. Click Approve, Conditional, Reject (requires comment), or Hold."],
+            ["Submit a new request", "Go to New Request. Fill in all fields. It automatically routes based on category."],
+            ["Log an expense", "Finance team: Go to Spend Tracker. Click \"+ Log Expense\". Select the project, enter vendor/amount/PO. Paste the SharePoint receipt URL. Your name is recorded as the entry author."],
+            ["Find what's stuck", "Go to Pipeline. Use the approver dropdown to filter by who needs to act next."],
+            ["Filter by site", "Go to Pipeline. Type a site name (Brookville, Kilgore, etc.) in the search box."],
+            ["Review budget vs. Finance", "Go to Reconciliation. Filter by Mismatch to see discrepancies needing resolution."],
+            ["View cash flow forecast", "Go to 13-Week CF. Shows weekly CapEx outflows for the next quarter. Filter by site to see location-specific cash needs."]
+          ].map(function(item) {
+            return (
+              <div key={item[0]} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 6, padding: "10px 12px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.tx, marginBottom: 3 }}>{item[0]}</div>
+                <div style={{ fontSize: 9, color: T.dim, lineHeight: "1.5" }}>{item[1]}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div style={{ background: T.bg2, border: "1px solid " + T.amb + "40", borderRadius: 10, padding: "14px 18px", borderLeft: "3px solid " + T.amb }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <AlertTriangle size={13} color={T.amb} />
           <span style={{ fontSize: 11, fontWeight: 700, color: T.amb }}>Questions?</span>
         </div>
-        <p style={{ fontSize: 10, color: T.tx2, margin: 0 }}>System: Brad Selby · Budget: Tom Naddy · Ops: Brad Sostack</p>
+        <p style={{ fontSize: 10, color: T.tx2, margin: 0 }}>System: Brad Selby (bselby@apexgeotech.com) | Budget: Tom Naddy | Ops: Brad Sostack</p>
+      </div>
+    </div>
+  );
+}
+
+function CashFlow({ data }) {
+  var [siteFilter, setSiteFilter] = useState("All");
+
+  var today = new Date();
+  var dayOfWeek = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  var weeks = [];
+  for (var w = 0; w < 13; w++) {
+    var start = new Date(monday);
+    start.setDate(monday.getDate() + w * 7);
+    var end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    var mo = start.getMonth();
+    var qtr = mo < 3 ? 0 : mo < 6 ? 1 : mo < 9 ? 2 : 3;
+    weeks.push({
+      idx: w,
+      label: "W" + (w + 1),
+      startDate: (start.getMonth() + 1) + "/" + start.getDate(),
+      endDate: (end.getMonth() + 1) + "/" + end.getDate(),
+      quarter: qtr,
+      forecast: 0,
+      projects: []
+    });
+  }
+
+  var projects = data.projects.filter(function(p) {
+    if (siteFilter !== "All" && p.s !== siteFilter) return false;
+    return ["Approved", "In Progress"].indexOf(p.st) >= 0;
+  });
+
+  var qWeeks = [0, 0, 0, 0];
+  weeks.forEach(function(wk) { qWeeks[wk.quarter]++; });
+
+  projects.forEach(function(p) {
+    var q = p.q || [0, 0, 0, 0];
+    weeks.forEach(function(wk) {
+      var qBudget = q[wk.quarter] || 0;
+      var weeksInQ = qWeeks[wk.quarter];
+      if (weeksInQ > 0 && qBudget > 0) {
+        var weeklyAmt = Math.round(qBudget / weeksInQ);
+        wk.forecast += weeklyAmt;
+        wk.projects.push({ name: p.n, amount: weeklyAmt });
+      }
+    });
+  });
+
+  var cumulative = 0;
+  var chartData = weeks.map(function(wk) {
+    cumulative += wk.forecast;
+    return { name: wk.label, week: wk.startDate + " - " + wk.endDate, forecast: wk.forecast, cumulative: cumulative };
+  });
+
+  var totalForecast = weeks.reduce(function(s, wk) { return s + wk.forecast; }, 0);
+  var peakWeek = weeks.reduce(function(max, wk) { return wk.forecast > max.forecast ? wk : max; }, weeks[0]);
+  var avgWeekly = Math.round(totalForecast / 13);
+
+  var sites = ["All"].concat(Array.from(new Set(data.projects.map(function(p) { return p.s; }))));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>13-Week Cash Flow Forecast</div>
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>Weekly CapEx outflow projection based on quarterly budget allocations</div>
+        </div>
+        <select value={siteFilter} onChange={function(e) { setSiteFilter(e.target.value); }}
+          style={{ padding: "6px 10px", border: "1px solid " + T.bdr, borderRadius: 6, fontSize: 10, outline: "none", background: T.bg3, color: siteFilter !== "All" ? T.amb : T.dim, fontFamily: T.ff }}>
+          {sites.map(function(s) { return React.createElement("option", { key: s, value: s, style: { background: T.bg2 } }, s); })}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fmt(totalForecast)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>13-Week Total</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.blu, fontFamily: T.ff }}>{fmt(avgWeekly)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Avg / Week</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.red, fontFamily: T.ff }}>{fmt(peakWeek.forecast)}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Peak Week ({peakWeek.label})</div>
+        </div>
+        <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.grn, fontFamily: T.ff }}>{projects.length}</div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Active Projects</div>
+        </div>
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 16px", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.tx, fontFamily: T.ff, marginBottom: 12 }}>Weekly Forecast + Cumulative</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.bdr} />
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} />
+            <YAxis yAxisId="left" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} tickFormatter={fmt} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: T.dim }} stroke={T.bdr} tickFormatter={fmt} />
+            <Tooltip contentStyle={tipStyle} formatter={function(v) { return fF(v); }} />
+            <Bar yAxisId="left" dataKey="forecast" fill={T.blu} radius={[3, 3, 0, 0]} name="Weekly Forecast" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: T.bg3 }}>
+              {["Week", "Dates", "Qtr", "Forecast", "Cumulative", "Top Projects"].map(function(h) {
+                return React.createElement("th", { key: h, style: { padding: "8px 10px", textAlign: "left", fontSize: 9, fontWeight: 600, color: T.dim, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid " + T.bdr } }, h);
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map(function(wk, i) {
+              var cum = 0;
+              for (var j = 0; j <= i; j++) cum += weeks[j].forecast;
+              var topP = wk.projects.slice().sort(function(a, b) { return b.amount - a.amount; }).slice(0, 3);
+              return React.createElement("tr", {
+                key: wk.idx,
+                style: { background: i === 0 ? T.bg3 + "60" : "transparent" },
+                onMouseEnter: function(e) { e.currentTarget.style.background = T.bg3; },
+                onMouseLeave: function(e) { e.currentTarget.style.background = i === 0 ? T.bg3 + "60" : "transparent"; }
+              },
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? T.amb : T.tx, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.label + (i === 0 ? " (current)" : "")),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.startDate + " - " + wk.endDate),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, "Q" + (wk.quarter + 1)),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 11, fontWeight: 700, color: wk.forecast > avgWeekly * 1.5 ? T.red : wk.forecast > 0 ? T.amb : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.forecast > 0 ? fF(wk.forecast) : "\u2014"),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, fontWeight: 600, color: T.blu, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, fF(cum)),
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 9, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, topP.map(function(tp) { return tp.name + " (" + fmt(tp.amount) + ")"; }).join(", ") || "\u2014")
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1021,7 +1263,7 @@ function Reconciliation({ data }) {
 function SpendTracker({ data, onUpdate }) {
   var [selProj, setSelProj] = useState("all");
   var [showForm, setShowForm] = useState(false);
-  var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+  var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false, receiptUrl: "" });
 
   var expenses = (data && data.expenses) ? data.expenses : [];
   var activeProjects = data.projects.filter(function(p) { return ["Approved","In Progress","Complete"].indexOf(p.st) >= 0; });
@@ -1050,7 +1292,9 @@ function SpendTracker({ data, onUpdate }) {
       po: nv.po,
       inv: nv.inv,
       projectId: nv.projectId,
-      hasReceipt: nv.hasReceipt
+      hasReceipt: nv.hasReceipt,
+      receiptUrl: nv.receiptUrl,
+      enteredBy: CURRENT_USER
     };
     var newExpenses = [ne].concat(expenses);
     var proj = data.projects.find(function(p) { return p.id === nv.projectId; });
@@ -1060,7 +1304,7 @@ function SpendTracker({ data, onUpdate }) {
       log: data.log.concat([{ ts: now(), action: "Expense logged: " + fF(ne.amount) + " to " + ne.vendor + " for " + projName + " (" + nv.projectId + ")", user: CURRENT_USER, comment: ne.desc }])
     });
     onUpdate(nd);
-    setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false });
+    setNv({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false, receiptUrl: "" });
     setShowForm(false);
   }
 
@@ -1075,7 +1319,7 @@ function SpendTracker({ data, onUpdate }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>Spend Tracker</div>
-          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>Log expenses, attach receipts, track actuals vs. budget</div>
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>Finance-managed actuals entry. Project owners forward invoices to Finance for recording.</div>
         </div>
         <button onClick={function() { setShowForm(!showForm); }} style={{
           padding: "7px 16px", background: showForm ? T.red + "18" : T.grn + "18",
@@ -1124,6 +1368,10 @@ function SpendTracker({ data, onUpdate }) {
                 <input type="checkbox" checked={nv.hasReceipt} onChange={function(e) { setField("hasReceipt", e.target.checked); }} />
                 Receipt attached
               </label>
+            </div>
+            <div>
+              <label style={lS}>Receipt Link (SharePoint)</label>
+              <input style={iS} value={nv.receiptUrl} onChange={function(e) { setField("receiptUrl", e.target.value); if (e.target.value) setField("hasReceipt", true); }} placeholder="https://ocidiv0.sharepoint.com/..." />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end" }}>
               <button onClick={handleAdd} style={{
@@ -1180,7 +1428,7 @@ function SpendTracker({ data, onUpdate }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Date", "Project", "Vendor", "Description", "PO #", "Invoice #", "Amount", "Receipt"].map(function(h) {
+              {["Date", "Project", "Vendor", "Description", "PO #", "Invoice #", "Amount", "Entered By", "Receipt"].map(function(h) {
                 return <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid " + T.bdr, background: T.bg3 }}>{h}</th>;
               })}
             </tr>
@@ -1197,10 +1445,13 @@ function SpendTracker({ data, onUpdate }) {
                   <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.po || "--"}</td>
                   <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.inv || "--"}</td>
                   <td style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: T.amb, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{fF(e.amount)}</td>
+                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.enteredBy || "--"}</td>
                   <td style={{ padding: "8px 12px", borderBottom: "1px solid " + T.bdr + "55" }}>
                     {e.hasReceipt
-                      ? <span style={{ color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600 }}>Attached</span>
-                      : <span style={{ color: T.red + "88", fontSize: 10, fontFamily: T.ff }}>Missing</span>
+                      ? (e.receiptUrl
+                        ? React.createElement("a", { href: e.receiptUrl, target: "_blank", rel: "noopener", style: { color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600, textDecoration: "none" } }, "View")
+                        : React.createElement("span", { style: { color: T.grn, fontSize: 10, fontFamily: T.ff, fontWeight: 600 } }, "Attached"))
+                      : React.createElement("span", { style: { color: T.red + "88", fontSize: 10, fontFamily: T.ff } }, "Missing")
                     }
                   </td>
                 </tr>
@@ -1213,6 +1464,331 @@ function SpendTracker({ data, onUpdate }) {
             {selProj === "all" ? "No expenses logged yet. Click \"+ Log Expense\" to add your first entry." : "No expenses logged for this project yet."}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BoardSummary({ data }) {
+  var d = data.projects;
+  var expenses = data.expenses || [];
+  var totalBudget = d.reduce(function(s, p) { return s + p.b; }, 0);
+  var totalSpent = d.reduce(function(s, p) { return s + p.sp; }, 0);
+  var pctUtilized = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0;
+  var activeProjects = d.filter(function(p) { return ["Approved","In Progress","Complete"].indexOf(p.st) >= 0; });
+  var pendingProjects = d.filter(function(p) { return p.st.startsWith("Pending"); });
+  var completedProjects = d.filter(function(p) { return p.st === "Complete"; });
+
+  /* Forecast: for simplicity, EAC = budget for unstarted, spent + remaining proportional for in-progress */
+  var totalForecast = d.reduce(function(s, p) {
+    if (p.st === "Complete") return s + p.sp;
+    if (p.sp > 0 && p.b > 0) {
+      var pctDone = Math.min(p.sp / p.b, 1);
+      if (pctDone > 0.9) return s + p.sp + (p.b - p.sp) * 0.5;
+      return s + p.b;
+    }
+    return s + p.b;
+  }, 0);
+  var totalVariance = totalBudget - totalForecast;
+  var variancePct = totalBudget > 0 ? (totalVariance / totalBudget * 100) : 0;
+
+  /* Project health scoring */
+  function getHealth(p) {
+    if (p.st === "Rejected" || p.st === "On Hold") return "red";
+    if (p.st === "Complete") return "green";
+    if (p.b > 0 && p.sp > p.b) return "red";
+    if (p.b > 0 && p.sp / p.b > 0.9 && p.st !== "Complete") return "yellow";
+    if (p.st === "Draft") return "gray";
+    if (p.b === 0 && p.st !== "Draft") return "yellow";
+    return "green";
+  }
+
+  var healthCounts = { green: 0, yellow: 0, red: 0, gray: 0 };
+  d.forEach(function(p) { var h = getHealth(p); healthCounts[h] = (healthCounts[h] || 0) + 1; });
+
+  /* Quarterly data - budget vs spent vs forecast */
+  var qData = ["Q1","Q2","Q3","Q4"].map(function(name, i) {
+    var qBudget = d.reduce(function(s, p) { return s + (p.q[i] || 0); }, 0);
+    var qSpent = i === 0 ? d.reduce(function(s, p) { return s + Math.min(p.sp, p.q[0] || 0); }, 0) : 0;
+    return { name: name, Budget: qBudget, Spent: qSpent, Forecast: qBudget };
+  });
+
+  /* Top 5 by spend */
+  var top5 = d.slice().sort(function(a, b) { return b.sp - a.sp; }).filter(function(p) { return p.sp > 0; }).slice(0, 5);
+
+  /* Variance highlights - projects with significant variance */
+  var variances = d.filter(function(p) {
+    if (p.b === 0) return false;
+    var delta = Math.abs(p.sp - p.b);
+    var pctVar = delta / p.b;
+    return (p.sp > p.b) || (pctVar > 0.1 && delta > 25000);
+  }).sort(function(a, b) { return Math.abs(b.sp - b.b) - Math.abs(a.sp - a.b); });
+
+  /* Site breakdown */
+  var siteMap = {};
+  d.forEach(function(p) {
+    if (!siteMap[p.s]) siteMap[p.s] = { budget: 0, spent: 0, count: 0 };
+    siteMap[p.s].budget += p.b;
+    siteMap[p.s].spent += p.sp;
+    siteMap[p.s].count += 1;
+  });
+  var siteRows = Object.keys(siteMap).map(function(s) {
+    return { site: s, budget: siteMap[s].budget, spent: siteMap[s].spent, count: siteMap[s].count, remaining: siteMap[s].budget - siteMap[s].spent, pct: siteMap[s].budget > 0 ? (siteMap[s].spent / siteMap[s].budget * 100) : 0 };
+  }).sort(function(a, b) { return b.budget - a.budget; });
+
+  /* Approval SLA - time from first pending to approved (use log data if available) */
+  var approvalQueue = pendingProjects.length;
+  var approvalValue = pendingProjects.reduce(function(s, p) { return s + p.b; }, 0);
+
+  var cardS = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", flex: 1, minWidth: 0 };
+  var labelS = { fontSize: 9, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: T.ff, marginBottom: 6 };
+  var bigNumS = { fontSize: 26, fontWeight: 700, fontFamily: T.ff, lineHeight: 1.2 };
+  var subS = { fontSize: 10, color: T.dim, fontFamily: T.ff, marginTop: 4 };
+  var sectionS = { background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 22px", marginBottom: 14 };
+  var sectionTitleS = { fontSize: 12, fontWeight: 700, color: T.tx, fontFamily: T.ff, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 };
+  var healthDotS = function(color) { return { width: 10, height: 10, borderRadius: 2, background: color }; };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: T.tx, margin: 0, fontFamily: T.ff }}>Board Summary</h2>
+            <p style={{ fontSize: 11, color: T.dim, margin: "3px 0 0", fontFamily: T.ff }}>Investment Governance Report — Apex Geotech Solutions — FY 2026</p>
+          </div>
+          <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 6, padding: "6px 14px" }}>
+            <div style={{ fontSize: 8, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.1em" }}>As of</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top KPI Cards */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+        <div style={cardS}>
+          <div style={labelS}>Total CapEx Budget</div>
+          <div style={Object.assign({}, bigNumS, { color: T.tx })}>{fmt(totalBudget)}</div>
+          <div style={subS}>{d.length + " initiatives across " + Object.keys(siteMap).length + " sites"}</div>
+        </div>
+        <div style={cardS}>
+          <div style={labelS}>YTD Spend</div>
+          <div style={Object.assign({}, bigNumS, { color: T.amb })}>{fmt(totalSpent)}</div>
+          <div style={subS}>{pctUtilized.toFixed(1) + "% of budget utilized"}</div>
+          <div style={{ height: 4, background: T.bg3, borderRadius: 2, marginTop: 8 }}>
+            <div style={{ height: "100%", width: Math.min(pctUtilized, 100) + "%", background: pctUtilized > 90 ? T.red : pctUtilized > 70 ? T.amb : T.grn, borderRadius: 2 }} />
+          </div>
+        </div>
+        <div style={cardS}>
+          <div style={labelS}>Forecast (EAC)</div>
+          <div style={Object.assign({}, bigNumS, { color: T.blu })}>{fmt(totalForecast)}</div>
+          <div style={subS}>{"Estimated at completion"}</div>
+        </div>
+        <div style={cardS}>
+          <div style={labelS}>Budget Variance</div>
+          <div style={Object.assign({}, bigNumS, { color: totalVariance >= 0 ? T.grn : T.red })}>{(totalVariance >= 0 ? "+" : "") + fmt(Math.abs(totalVariance))}</div>
+          <div style={subS}>{(totalVariance >= 0 ? "Under" : "Over") + " budget by " + Math.abs(variancePct).toFixed(1) + "%"}</div>
+        </div>
+      </div>
+
+      {/* Two column: Quarterly + Health */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div style={sectionS}>
+          <div style={sectionTitleS}>Quarterly Capital Deployment</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={qData} barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.bdr} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: T.dim, fontFamily: T.ff }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: T.dim, fontFamily: T.ff }} axisLine={false} tickLine={false} tickFormatter={function(v) { return fmt(v); }} />
+              <Tooltip formatter={function(v) { return fF(v); }} contentStyle={tipStyle} />
+              <Legend wrapperStyle={{ fontSize: 10, fontFamily: T.ff }} />
+              <Bar dataKey="Budget" fill={T.blu + "55"} stroke={T.blu} strokeWidth={1} radius={[3,3,0,0]} />
+              <Bar dataKey="Spent" fill={T.grn} radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={sectionS}>
+          <div style={sectionTitleS}>Project Health</div>
+          <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+            {[
+              { label: "On Track", count: healthCounts.green, color: T.grn },
+              { label: "At Risk", count: healthCounts.yellow, color: T.amb },
+              { label: "Critical", count: healthCounts.red, color: T.red },
+              { label: "Not Started", count: healthCounts.gray, color: T.dim }
+            ].map(function(h) {
+              return (
+                <div key={h.label} style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: h.color, fontFamily: T.ff }}>{h.count}</div>
+                  <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>{h.label}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Heat map grid */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {d.map(function(p) {
+              var h = getHealth(p);
+              var hColor = h === "green" ? T.grn : h === "yellow" ? T.amb : h === "red" ? T.red : T.bg3;
+              return (
+                <div key={p.id} title={p.id + " " + p.n + " (" + p.st + ")"} style={{
+                  width: 28, height: 28, borderRadius: 4, background: hColor + "30",
+                  border: "1px solid " + hColor + "50", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 7, fontWeight: 600, color: hColor, fontFamily: T.ff, cursor: "default"
+                }}>{p.id.replace("2026-", "")}</div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 10, lineHeight: 1.6 }}>
+            {"Green: on track | Yellow: >90% spent or $0 budget | Red: over budget or blocked"}
+          </div>
+        </div>
+      </div>
+
+      {/* Two column: Top 5 Spend + Variance Highlights */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div style={sectionS}>
+          <div style={sectionTitleS}>Top 5 Projects by YTD Spend</div>
+          {top5.map(function(p, i) {
+            var pctOfBudget = p.b > 0 ? (p.sp / p.b * 100) : 0;
+            return (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < 4 ? "1px solid " + T.bdr + "40" : "none" }}>
+                <div style={{ width: 20, fontSize: 11, fontWeight: 700, color: T.dim, fontFamily: T.ff }}>{i + 1}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
+                  <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>{p.s + " \u2022 " + p.o}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fF(p.sp)}</div>
+                  <div style={{ fontSize: 9, color: pctOfBudget > 100 ? T.red : T.dim, fontFamily: T.ff }}>{pctOfBudget.toFixed(0) + "% of " + fmt(p.b)}</div>
+                </div>
+              </div>
+            );
+          })}
+          {top5.length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.dim, fontSize: 11, fontFamily: T.ff }}>No spend recorded yet</div>}
+        </div>
+
+        <div style={sectionS}>
+          <div style={sectionTitleS}>
+            <span>Variance Highlights</span>
+            {variances.length === 0 && <span style={{ fontSize: 9, color: T.grn, fontWeight: 500, marginLeft: "auto" }}>No material variances</span>}
+          </div>
+          {variances.length > 0 ? variances.slice(0, 5).map(function(p, i) {
+            var delta = p.sp - p.b;
+            var isOver = delta > 0;
+            return (
+              <div key={p.id} style={{ padding: "8px 0", borderBottom: i < Math.min(variances.length, 5) - 1 ? "1px solid " + T.bdr + "40" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
+                    <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>{p.s + " \u2022 Budget: " + fF(p.b) + " \u2022 Actual: " + fF(p.sp)}</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: isOver ? T.red : T.grn, fontFamily: T.ff }}>
+                    {(isOver ? "+" : "") + fF(delta)}
+                  </div>
+                </div>
+                <div style={{ fontSize: 9, color: T.amb, fontFamily: T.ff, fontStyle: "italic", marginTop: 3 }}>
+                  {p.sp > p.b ? "Over budget \u2014 variance explanation needed" : "Significant underspend \u2014 verify timing"}
+                </div>
+              </div>
+            );
+          }) : (
+            <div style={{ padding: "12px 0" }}>
+              <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff, lineHeight: 1.6 }}>
+                {"All projects within 10% / $25K variance threshold. Monitoring continues."}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Site breakdown table */}
+      <div style={sectionS}>
+        <div style={sectionTitleS}>Capital Allocation by Site</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["Site", "Initiatives", "Budget", "YTD Spend", "Remaining", "Utilization"].map(function(h) {
+                return React.createElement("th", { key: h, style: { padding: "8px 12px", textAlign: h === "Site" ? "left" : "right", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid " + T.bdr } }, h);
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {siteRows.map(function(r) {
+              return React.createElement("tr", { key: r.site },
+                React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff } }, r.site),
+                React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, color: T.dim, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, r.count),
+                React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, fF(r.budget)),
+                React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.amb, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, fF(r.spent)),
+                React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, color: r.remaining < 0 ? T.red : T.grn, fontWeight: 600, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, fF(r.remaining)),
+                React.createElement("td", { style: { padding: "9px 12px", borderBottom: "1px solid " + T.bdr + "40", textAlign: "right" } },
+                  React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" } },
+                    React.createElement("div", { style: { width: 60, height: 5, background: T.bg3, borderRadius: 3 } },
+                      React.createElement("div", { style: { height: "100%", width: Math.min(r.pct, 100) + "%", background: r.pct > 100 ? T.red : r.pct > 80 ? T.amb : T.grn, borderRadius: 3 } })
+                    ),
+                    React.createElement("span", { style: { fontSize: 10, color: r.pct > 100 ? T.red : T.dim, fontWeight: 600, fontFamily: T.ff, minWidth: 36 } }, r.pct.toFixed(0) + "%")
+                  )
+                )
+              );
+            })}
+            {/* Totals row */}
+            {React.createElement("tr", { key: "total" },
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: T.tx, borderTop: "2px solid " + T.bdr, fontFamily: T.ff } }, "TOTAL"),
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: T.tx, borderTop: "2px solid " + T.bdr, fontFamily: T.ff, textAlign: "right" } }, d.length),
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: T.tx, borderTop: "2px solid " + T.bdr, fontFamily: T.ff, textAlign: "right" } }, fF(totalBudget)),
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: T.amb, borderTop: "2px solid " + T.bdr, fontFamily: T.ff, textAlign: "right" } }, fF(totalSpent)),
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: totalBudget - totalSpent >= 0 ? T.grn : T.red, borderTop: "2px solid " + T.bdr, fontFamily: T.ff, textAlign: "right" } }, fF(totalBudget - totalSpent)),
+              React.createElement("td", { style: { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: T.tx, borderTop: "2px solid " + T.bdr, fontFamily: T.ff, textAlign: "right" } }, pctUtilized.toFixed(0) + "%")
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pending Approvals + Governance callout */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={sectionS}>
+          <div style={sectionTitleS}>Pending Approvals</div>
+          {pendingProjects.length > 0 ? pendingProjects.map(function(p, i) {
+            return (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < pendingProjects.length - 1 ? "1px solid " + T.bdr + "40" : "none" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
+                  <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>{"Awaiting: " + getApprover(p.st)}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.amb, fontFamily: T.ff }}>{fF(p.b)}</div>
+                  <div style={{ fontSize: 8, color: (SC[p.st] || SC.Draft).c, fontWeight: 600, fontFamily: T.ff }}>{p.st}</div>
+                </div>
+              </div>
+            );
+          }) : <div style={{ padding: 16, textAlign: "center", color: T.grn, fontSize: 11, fontFamily: T.ff }}>All projects approved or in progress</div>}
+        </div>
+
+        <div style={sectionS}>
+          <div style={sectionTitleS}>Governance Summary</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[
+              { label: "Budgeted", value: d.filter(function(p) { return p.bg !== false; }).length, sub: fmt(d.filter(function(p) { return p.bg !== false; }).reduce(function(s, p) { return s + p.b; }, 0)) },
+              { label: "Unbudgeted", value: d.filter(function(p) { return p.bg === false; }).length, sub: fmt(d.filter(function(p) { return p.bg === false; }).reduce(function(s, p) { return s + p.b; }, 0)) },
+              { label: "Completed", value: completedProjects.length, sub: fmt(completedProjects.reduce(function(s, p) { return s + p.sp; }, 0)) + " spent" },
+              { label: "In Queue", value: approvalQueue, sub: fmt(approvalValue) + " pending" }
+            ].map(function(g) {
+              return (
+                <div key={g.label} style={{ background: T.bg3 + "60", borderRadius: 6, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{g.value}</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em" }}>{g.label}</div>
+                  <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>{g.sub}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 14, padding: "10px 12px", background: T.blu + "10", border: "1px solid " + T.blu + "25", borderRadius: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: T.blu, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Controls in Place</div>
+            <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff, lineHeight: 1.6 }}>
+              {"DoA-based approval routing \u2022 ROI required >$25K \u2022 Finance-owned actuals \u2022 SharePoint document linking \u2022 Full audit trail"}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1333,15 +1909,35 @@ function App() {
     setSel(null);
   }, [persist]);
 
+  var handleComment = useCallback(function(pid, text) {
+    var newP = data.projects.map(function(p) {
+      if (p.id !== pid) return p;
+      var existing = p.updates || [];
+      var entry = { ts: now(), user: CURRENT_USER, text: text };
+      return Object.assign({}, p, { updates: existing.concat([entry]) });
+    });
+    var proj = data.projects.find(function(p) { return p.id === pid; });
+    var nd = {
+      projects: newP,
+      log: data.log.concat([{ ts: now(), action: "Update posted on " + proj.n + " (" + pid + ")", user: CURRENT_USER, comment: text }]),
+      nextNum: data.nextNum,
+      expenses: data.expenses || []
+    };
+    persist(nd);
+    if (sel && sel.id === pid) setSel(newP.find(function(p) { return p.id === pid; }));
+  }, [data, sel, persist]);
+
   if (loading || !data) {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: T.bg, fontFamily: T.ff, color: T.dim }}>Loading...</div>;
   }
 
   var navItems = [
+    { id: "board", l: "Board Summary", i: Briefcase },
     { id: "dashboard", l: "Dashboard", i: LayoutDashboard },
     { id: "pipeline", l: "Pipeline", i: ListChecks },
     { id: "spend", l: "Spend Tracker", i: Receipt },
     { id: "recon", l: "Reconciliation", i: AlertTriangle },
+    { id: "cashflow", l: "13-Week CF", i: TrendingUp },
     { id: "approvals", l: "Approvals", i: CheckCircle2 },
     { id: "submit", l: "New Request", i: PlusCircle },
     { id: "exports", l: "Export", i: Download },
@@ -1411,10 +2007,12 @@ function App() {
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", position: "relative" }}>
+        {view === "board" && <BoardSummary data={data} />}
         {view === "dashboard" && <Dashboard data={data} />}
         {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
         {view === "spend" && <SpendTracker data={data} onUpdate={persist} />}
         {view === "recon" && <Reconciliation data={data} />}
+        {view === "cashflow" && <CashFlow data={data} />}
         {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
         {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
         {view === "exports" && <ExportPage data={data} />}
@@ -1422,7 +2020,7 @@ function App() {
         {view === "howto" && <HowToPage />}
       </div>
 
-      {sel && <DetailPanel p={sel} onClose={function() { setSel(null); }} onAction={handleAction} />}
+      {sel && <DetailPanel p={sel} onClose={function() { setSel(null); }} onAction={handleAction} onComment={handleComment} />}
     </div>
   );
 }
