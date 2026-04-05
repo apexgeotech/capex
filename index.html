@@ -1478,6 +1478,7 @@ function BoardSummary({ data }) {
   var activeProjects = d.filter(function(p) { return ["Approved","In Progress","Complete"].indexOf(p.st) >= 0; });
   var pendingProjects = d.filter(function(p) { return p.st.startsWith("Pending"); });
   var completedProjects = d.filter(function(p) { return p.st === "Complete"; });
+  var [govExpand, setGovExpand] = useState(null);
 
   /* Forecast: for simplicity, EAC = budget for unstarted, spent + remaining proportional for in-progress */
   var totalForecast = d.reduce(function(s, p) {
@@ -1768,20 +1769,65 @@ function BoardSummary({ data }) {
           <div style={sectionTitleS}>Governance Summary</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {[
-              { label: "Budgeted", value: d.filter(function(p) { return p.bg !== false; }).length, sub: fmt(d.filter(function(p) { return p.bg !== false; }).reduce(function(s, p) { return s + p.b; }, 0)) },
-              { label: "Unbudgeted", value: d.filter(function(p) { return p.bg === false; }).length, sub: fmt(d.filter(function(p) { return p.bg === false; }).reduce(function(s, p) { return s + p.b; }, 0)) },
-              { label: "Completed", value: completedProjects.length, sub: fmt(completedProjects.reduce(function(s, p) { return s + p.sp; }, 0)) + " spent" },
-              { label: "In Queue", value: approvalQueue, sub: fmt(approvalValue) + " pending" }
+              { label: "Budgeted", value: d.filter(function(p) { return p.bg !== false; }).length, sub: fmt(d.filter(function(p) { return p.bg !== false; }).reduce(function(s, p) { return s + p.b; }, 0)), key: "budgeted" },
+              { label: "Unbudgeted", value: d.filter(function(p) { return p.bg === false; }).length, sub: fmt(d.filter(function(p) { return p.bg === false; }).reduce(function(s, p) { return s + p.b; }, 0)), key: "unbudgeted" },
+              { label: "Completed", value: completedProjects.length, sub: fmt(completedProjects.reduce(function(s, p) { return s + p.sp; }, 0)) + " spent", key: "completed" },
+              { label: "In Queue", value: approvalQueue, sub: fmt(approvalValue) + " pending", key: "queue" }
             ].map(function(g) {
+              var isActive = govExpand === g.key;
               return (
-                <div key={g.label} style={{ background: T.bg3 + "60", borderRadius: 6, padding: "10px 12px" }}>
+                <div key={g.label} onClick={function() { setGovExpand(isActive ? null : g.key); }} style={{ background: isActive ? T.blu + "15" : T.bg3 + "60", borderRadius: 6, padding: "10px 12px", cursor: "pointer", border: isActive ? "1px solid " + T.blu + "40" : "1px solid transparent", transition: "all 0.15s" }}>
                   <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{g.value}</div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em" }}>{g.label}</div>
                   <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>{g.sub}</div>
+                  <div style={{ fontSize: 8, color: isActive ? T.blu : T.dim, fontFamily: T.ff, marginTop: 4 }}>{isActive ? "\u25B2 Click to collapse" : "\u25BC Click to view projects"}</div>
                 </div>
               );
             })}
           </div>
+          {govExpand && (function() {
+            var govProjects = [];
+            if (govExpand === "budgeted") govProjects = d.filter(function(p) { return p.bg !== false; });
+            if (govExpand === "unbudgeted") govProjects = d.filter(function(p) { return p.bg === false; });
+            if (govExpand === "completed") govProjects = completedProjects;
+            if (govExpand === "queue") govProjects = pendingProjects;
+            var govLabel = govExpand === "budgeted" ? "Budgeted" : govExpand === "unbudgeted" ? "Unbudgeted" : govExpand === "completed" ? "Completed" : "In Approval Queue";
+            var govTotal = govProjects.reduce(function(s, p) { return s + p.b; }, 0);
+            var govSpent = govProjects.reduce(function(s, p) { return s + p.sp; }, 0);
+            return (
+              <div style={{ marginTop: 12, background: T.bg3 + "40", borderRadius: 6, border: "1px solid " + T.bdr, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid " + T.bdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{govLabel + " Projects (" + govProjects.length + ")"}</div>
+                  <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff }}>{"Budget: " + fF(govTotal) + " | Spent: " + fF(govSpent)}</div>
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {["ID", "Initiative", "Site", "Owner", "Budget", "Spent", "Status"].map(function(h) {
+                        return React.createElement("th", { key: h, style: { padding: "7px 10px", textAlign: h === "Budget" || h === "Spent" ? "right" : "left", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid " + T.bdr } }, h);
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {govProjects.map(function(p) {
+                      var stCfg = SC[p.st] || SC.Draft;
+                      return React.createElement("tr", { key: p.id },
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.id),
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.n),
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.s),
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.o),
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.b > 0 ? fF(p.b) : "\u2014"),
+                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: p.sp > 0 ? T.amb : T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.sp > 0 ? fF(p.sp) : "\u2014"),
+                        React.createElement("td", { style: { padding: "6px 10px", borderBottom: "1px solid " + T.bdr + "30" } },
+                          React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: stCfg.c, background: stCfg.b, padding: "2px 8px", borderRadius: 3, fontFamily: T.ff } }, p.st)
+                        )
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           <div style={{ marginTop: 14, padding: "10px 12px", background: T.blu + "10", border: "1px solid " + T.blu + "25", borderRadius: 6 }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: T.blu, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Controls in Place</div>
             <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff, lineHeight: 1.6 }}>
