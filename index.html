@@ -1479,6 +1479,12 @@ function BoardSummary({ data }) {
   var pendingProjects = d.filter(function(p) { return p.st.startsWith("Pending"); });
   var completedProjects = d.filter(function(p) { return p.st === "Complete"; });
   var [govExpand, setGovExpand] = useState(null);
+  var [drill, setDrill] = useState(null);
+
+  function openDrill(label, projects) {
+    if (drill && drill.label === label) { setDrill(null); return; }
+    setDrill({ label: label, projects: projects });
+  }
 
   /* Forecast: for simplicity, EAC = budget for unstarted, spent + remaining proportional for in-progress */
   var totalForecast = d.reduce(function(s, p) {
@@ -1564,14 +1570,52 @@ function BoardSummary({ data }) {
         </div>
       </div>
 
+      {/* Drill-Down Panel */}
+      {drill && (
+        <div style={{ background: T.bg2, border: "1px solid " + T.blu + "40", borderRadius: 10, padding: "16px 22px", marginBottom: 14, borderLeft: "3px solid " + T.blu }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{drill.label + " (" + drill.projects.length + " projects)"}</div>
+              <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff }}>{"Budget: " + fF(drill.projects.reduce(function(s, p) { return s + p.b; }, 0)) + " | Spent: " + fF(drill.projects.reduce(function(s, p) { return s + p.sp; }, 0))}</div>
+            </div>
+            <button onClick={function() { setDrill(null); }} style={{ background: T.bg3, border: "1px solid " + T.bdr, borderRadius: 5, padding: "4px 12px", color: T.dim, fontSize: 10, fontFamily: T.ff, cursor: "pointer", fontWeight: 600 }}>Close</button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["ID", "Initiative", "Site", "Owner", "Budget", "Spent", "Status"].map(function(h) {
+                  return React.createElement("th", { key: h, style: { padding: "7px 10px", textAlign: h === "Budget" || h === "Spent" ? "right" : "left", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid " + T.bdr } }, h);
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {drill.projects.map(function(p) {
+                var stCfg = SC[p.st] || SC.Draft;
+                return React.createElement("tr", { key: p.id },
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.id),
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.n),
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.s),
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.o),
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.b > 0 ? fF(p.b) : "\u2014"),
+                  React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: p.sp > 0 ? T.amb : T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.sp > 0 ? fF(p.sp) : "\u2014"),
+                  React.createElement("td", { style: { padding: "6px 10px", borderBottom: "1px solid " + T.bdr + "30" } },
+                    React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: stCfg.c, background: stCfg.b, padding: "2px 8px", borderRadius: 3, fontFamily: T.ff } }, p.st)
+                  )
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Top KPI Cards */}
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-        <div style={cardS}>
+        <div style={Object.assign({}, cardS, { cursor: "pointer" })} onClick={function() { openDrill("All Initiatives", d); }}>
           <div style={labelS}>Total CapEx Budget</div>
           <div style={Object.assign({}, bigNumS, { color: T.tx })}>{fmt(totalBudget)}</div>
           <div style={subS}>{d.length + " initiatives across " + Object.keys(siteMap).length + " sites"}</div>
         </div>
-        <div style={cardS}>
+        <div style={Object.assign({}, cardS, { cursor: "pointer" })} onClick={function() { openDrill("Projects with YTD Spend", d.filter(function(p) { return p.sp > 0; })); }}>
           <div style={labelS}>YTD Spend</div>
           <div style={Object.assign({}, bigNumS, { color: T.amb })}>{fmt(totalSpent)}</div>
           <div style={subS}>{pctUtilized.toFixed(1) + "% of budget utilized"}</div>
@@ -1579,12 +1623,12 @@ function BoardSummary({ data }) {
             <div style={{ height: "100%", width: Math.min(pctUtilized, 100) + "%", background: pctUtilized > 90 ? T.red : pctUtilized > 70 ? T.amb : T.grn, borderRadius: 2 }} />
           </div>
         </div>
-        <div style={cardS}>
+        <div style={Object.assign({}, cardS, { cursor: "pointer" })} onClick={function() { openDrill("All Active Initiatives", activeProjects); }}>
           <div style={labelS}>Forecast (EAC)</div>
           <div style={Object.assign({}, bigNumS, { color: T.blu })}>{fmt(totalForecast)}</div>
           <div style={subS}>{"Estimated at completion"}</div>
         </div>
-        <div style={cardS}>
+        <div style={Object.assign({}, cardS, { cursor: "pointer" })} onClick={function() { openDrill("Variance Contributors", d.filter(function(p) { return p.sp > 0 && p.b > 0; })); }}>
           <div style={labelS}>Budget Variance</div>
           <div style={Object.assign({}, bigNumS, { color: totalVariance >= 0 ? T.grn : T.red })}>{(totalVariance >= 0 ? "+" : "") + fmt(Math.abs(totalVariance))}</div>
           <div style={subS}>{(totalVariance >= 0 ? "Under" : "Over") + " budget by " + Math.abs(variancePct).toFixed(1) + "%"}</div>
@@ -1612,13 +1656,13 @@ function BoardSummary({ data }) {
           <div style={sectionTitleS}>Project Health</div>
           <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
             {[
-              { label: "On Track", count: healthCounts.green, color: T.grn },
-              { label: "At Risk", count: healthCounts.yellow, color: T.amb },
-              { label: "Critical", count: healthCounts.red, color: T.red },
-              { label: "Not Started", count: healthCounts.gray, color: T.dim }
+              { label: "On Track", count: healthCounts.green, color: T.grn, key: "green" },
+              { label: "At Risk", count: healthCounts.yellow, color: T.amb, key: "yellow" },
+              { label: "Critical", count: healthCounts.red, color: T.red, key: "red" },
+              { label: "Not Started", count: healthCounts.gray, color: T.dim, key: "gray" }
             ].map(function(h) {
               return (
-                <div key={h.label} style={{ textAlign: "center", flex: 1 }}>
+                <div key={h.label} style={{ textAlign: "center", flex: 1, cursor: "pointer", padding: "6px 4px", borderRadius: 6, background: drill && drill.label === h.label + " Projects" ? T.blu + "15" : "transparent" }} onClick={function() { openDrill(h.label + " Projects", d.filter(function(p) { return getHealth(p) === h.key; })); }}>
                   <div style={{ fontSize: 24, fontWeight: 700, color: h.color, fontFamily: T.ff }}>{h.count}</div>
                   <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>{h.label}</div>
                 </div>
@@ -1632,10 +1676,10 @@ function BoardSummary({ data }) {
               var h = getHealth(p);
               var hColor = h === "green" ? T.grn : h === "yellow" ? T.amb : h === "red" ? T.red : T.bg3;
               return (
-                <div key={p.id} title={p.id + " " + p.n + " (" + p.st + ")"} style={{
+                <div key={p.id} title={p.id + " " + p.n + " (" + p.st + ")"} onClick={function() { openDrill(p.id + " " + p.n, [p]); }} style={{
                   width: 28, height: 28, borderRadius: 4, background: hColor + "30",
                   border: "1px solid " + hColor + "50", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 7, fontWeight: 600, color: hColor, fontFamily: T.ff, cursor: "default"
+                  fontSize: 7, fontWeight: 600, color: hColor, fontFamily: T.ff, cursor: "pointer"
                 }}>{p.id.replace("2026-", "")}</div>
               );
             })}
@@ -1653,7 +1697,8 @@ function BoardSummary({ data }) {
           {top5.map(function(p, i) {
             var pctOfBudget = p.b > 0 ? (p.sp / p.b * 100) : 0;
             return (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < 4 ? "1px solid " + T.bdr + "40" : "none" }}>
+              <div key={p.id} onClick={function() { openDrill(p.id + " " + p.n, [p]); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < 4 ? "1px solid " + T.bdr + "40" : "none", cursor: "pointer", borderRadius: 4 }}
+                onMouseEnter={function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }} onMouseLeave={function(ev) { ev.currentTarget.style.background = "transparent"; }}>
                 <div style={{ width: 20, fontSize: 11, fontWeight: 700, color: T.dim, fontFamily: T.ff }}>{i + 1}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
@@ -1678,7 +1723,8 @@ function BoardSummary({ data }) {
             var delta = p.sp - p.b;
             var isOver = delta > 0;
             return (
-              <div key={p.id} style={{ padding: "8px 0", borderBottom: i < Math.min(variances.length, 5) - 1 ? "1px solid " + T.bdr + "40" : "none" }}>
+              <div key={p.id} onClick={function() { openDrill(p.id + " " + p.n, [p]); }} style={{ padding: "8px 0", borderBottom: i < Math.min(variances.length, 5) - 1 ? "1px solid " + T.bdr + "40" : "none", cursor: "pointer", borderRadius: 4 }}
+                onMouseEnter={function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }} onMouseLeave={function(ev) { ev.currentTarget.style.background = "transparent"; }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
@@ -1716,7 +1762,8 @@ function BoardSummary({ data }) {
           </thead>
           <tbody>
             {siteRows.map(function(r) {
-              return React.createElement("tr", { key: r.site },
+              return React.createElement("tr", { key: r.site, onClick: function() { openDrill(r.site + " Projects", d.filter(function(p) { return p.s === r.site; })); }, style: { cursor: "pointer" },
+                onMouseEnter: function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }, onMouseLeave: function(ev) { ev.currentTarget.style.background = "transparent"; } },
                 React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff } }, r.site),
                 React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, color: T.dim, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, r.count),
                 React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, fF(r.budget)),
@@ -1751,7 +1798,8 @@ function BoardSummary({ data }) {
           <div style={sectionTitleS}>Pending Approvals</div>
           {pendingProjects.length > 0 ? pendingProjects.map(function(p, i) {
             return (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < pendingProjects.length - 1 ? "1px solid " + T.bdr + "40" : "none" }}>
+              <div key={p.id} onClick={function() { openDrill(p.id + " " + p.n, [p]); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < pendingProjects.length - 1 ? "1px solid " + T.bdr + "40" : "none", cursor: "pointer", borderRadius: 4 }}
+                onMouseEnter={function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }} onMouseLeave={function(ev) { ev.currentTarget.style.background = "transparent"; }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: T.tx, fontFamily: T.ff }}>{p.n}</div>
                   <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff }}>{"Awaiting: " + getApprover(p.st)}</div>
@@ -1776,7 +1824,7 @@ function BoardSummary({ data }) {
             ].map(function(g) {
               var isActive = govExpand === g.key;
               return (
-                <div key={g.label} onClick={function() { setGovExpand(isActive ? null : g.key); }} style={{ background: isActive ? T.blu + "15" : T.bg3 + "60", borderRadius: 6, padding: "10px 12px", cursor: "pointer", border: isActive ? "1px solid " + T.blu + "40" : "1px solid transparent", transition: "all 0.15s" }}>
+                <div key={g.label} onClick={function() { setGovExpand(isActive ? null : g.key); openDrill(g.label + " Projects", g.key === "budgeted" ? d.filter(function(p) { return p.bg !== false; }) : g.key === "unbudgeted" ? d.filter(function(p) { return p.bg === false; }) : g.key === "completed" ? completedProjects : pendingProjects); }} style={{ background: isActive ? T.blu + "15" : T.bg3 + "60", borderRadius: 6, padding: "10px 12px", cursor: "pointer", border: isActive ? "1px solid " + T.blu + "40" : "1px solid transparent", transition: "all 0.15s" }}>
                   <div style={{ fontSize: 18, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{g.value}</div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em" }}>{g.label}</div>
                   <div style={{ fontSize: 9, color: T.dim, fontFamily: T.ff, marginTop: 2 }}>{g.sub}</div>
@@ -1785,49 +1833,6 @@ function BoardSummary({ data }) {
               );
             })}
           </div>
-          {govExpand && (function() {
-            var govProjects = [];
-            if (govExpand === "budgeted") govProjects = d.filter(function(p) { return p.bg !== false; });
-            if (govExpand === "unbudgeted") govProjects = d.filter(function(p) { return p.bg === false; });
-            if (govExpand === "completed") govProjects = completedProjects;
-            if (govExpand === "queue") govProjects = pendingProjects;
-            var govLabel = govExpand === "budgeted" ? "Budgeted" : govExpand === "unbudgeted" ? "Unbudgeted" : govExpand === "completed" ? "Completed" : "In Approval Queue";
-            var govTotal = govProjects.reduce(function(s, p) { return s + p.b; }, 0);
-            var govSpent = govProjects.reduce(function(s, p) { return s + p.sp; }, 0);
-            return (
-              <div style={{ marginTop: 12, background: T.bg3 + "40", borderRadius: 6, border: "1px solid " + T.bdr, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: "1px solid " + T.bdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: T.tx, fontFamily: T.ff }}>{govLabel + " Projects (" + govProjects.length + ")"}</div>
-                  <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff }}>{"Budget: " + fF(govTotal) + " | Spent: " + fF(govSpent)}</div>
-                </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {["ID", "Initiative", "Site", "Owner", "Budget", "Spent", "Status"].map(function(h) {
-                        return React.createElement("th", { key: h, style: { padding: "7px 10px", textAlign: h === "Budget" || h === "Spent" ? "right" : "left", fontSize: 9, fontWeight: 700, color: T.dim, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid " + T.bdr } }, h);
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {govProjects.map(function(p) {
-                      var stCfg = SC[p.st] || SC.Draft;
-                      return React.createElement("tr", { key: p.id },
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.id),
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.n),
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.s),
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.o),
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.b > 0 ? fF(p.b) : "\u2014"),
-                        React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: p.sp > 0 ? T.amb : T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30", textAlign: "right" } }, p.sp > 0 ? fF(p.sp) : "\u2014"),
-                        React.createElement("td", { style: { padding: "6px 10px", borderBottom: "1px solid " + T.bdr + "30" } },
-                          React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: stCfg.c, background: stCfg.b, padding: "2px 8px", borderRadius: 3, fontFamily: T.ff } }, p.st)
-                        )
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
           <div style={{ marginTop: 14, padding: "10px 12px", background: T.blu + "10", border: "1px solid " + T.blu + "25", borderRadius: 6 }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: T.blu, fontFamily: T.ff, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Controls in Place</div>
             <div style={{ fontSize: 10, color: T.dim, fontFamily: T.ff, lineHeight: 1.6 }}>
