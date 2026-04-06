@@ -273,10 +273,11 @@ function Route({ cat }) {
   );
 }
 
-function MetricCard({ icon, label, value, sub }) {
+function MetricCard({ icon, label, value, sub, onClick }) {
   var Icon = icon;
   return (
-    <div style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 20px", flex: 1, minWidth: 180 }}>
+    <div onClick={onClick} style={{ background: T.bg2, border: "1px solid " + T.bdr, borderRadius: 10, padding: "18px 20px", flex: 1, minWidth: 180, cursor: onClick ? "pointer" : "default" }}
+      onMouseEnter={function(ev) { if (onClick) ev.currentTarget.style.borderColor = T.blu; }} onMouseLeave={function(ev) { ev.currentTarget.style.borderColor = T.bdr; }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 10, color: T.dim, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7 }}>{label}</div>
@@ -291,7 +292,7 @@ function MetricCard({ icon, label, value, sub }) {
   );
 }
 
-function Dashboard({ data }) {
+function Dashboard({ data, onSel, onNav }) {
   var d = data.projects;
   var tot = d.reduce(function(s, p) { return s + p.b; }, 0);
   var spent = d.reduce(function(s, p) { return s + p.sp; }, 0);
@@ -325,10 +326,10 @@ function Dashboard({ data }) {
       </div>
 
       <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        <MetricCard icon={DollarSign} label="Total Budget" value={fmt(tot)} sub={d.length + " initiatives"} />
-        <MetricCard icon={TrendingUp} label="YTD Spent" value={fmt(spent)} sub={((spent / tot) * 100).toFixed(1) + "% utilized"} />
-        <MetricCard icon={CheckCircle2} label="Approved" value={fmt(appr.reduce(function(s, p) { return s + p.b; }, 0))} sub={appr.length + " initiatives"} />
-        <MetricCard icon={Clock} label="Pending" value={pend.length} sub={fmt(pend.reduce(function(s, p) { return s + p.b; }, 0)) + " awaiting"} />
+        <MetricCard icon={DollarSign} label="Total Budget" value={fmt(tot)} sub={d.length + " initiatives"} onClick={function() { onNav("pipeline", ""); }} />
+        <MetricCard icon={TrendingUp} label="YTD Spent" value={fmt(spent)} sub={((spent / tot) * 100).toFixed(1) + "% utilized"} onClick={function() { onNav("spend", ""); }} />
+        <MetricCard icon={CheckCircle2} label="Approved" value={fmt(appr.reduce(function(s, p) { return s + p.b; }, 0))} sub={appr.length + " initiatives"} onClick={function() { onNav("pipeline", "Approved"); }} />
+        <MetricCard icon={Clock} label="Pending" value={pend.length} sub={fmt(pend.reduce(function(s, p) { return s + p.b; }, 0)) + " awaiting"} onClick={function() { onNav("approvals", ""); }} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
@@ -390,7 +391,7 @@ function Dashboard({ data }) {
             var st = entry[0], cnt = entry[1];
             var cfg = SC[st] || SC.Draft;
             return (
-              <div key={st} style={{ marginBottom: 8 }}>
+              <div key={st} style={{ marginBottom: 8, cursor: "pointer" }} onClick={function() { onNav("pipeline", st); }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                   <span style={{ fontSize: 10, color: T.tx2 }}>{st}</span>
                   <span style={{ fontSize: 10, fontWeight: 600, color: T.tx }}>{cnt}</span>
@@ -418,10 +419,12 @@ function getApprover(st) {
   return "";
 }
 
-function Pipeline({ data, onSel }) {
+function Pipeline({ data, onSel, navFilter }) {
   var [flt, setFlt] = useState("All");
   var [aflt, setAflt] = useState("All");
-  var [q, setQ] = useState("");
+  var [q, setQ] = useState(navFilter || "");
+
+  useEffect(function() { if (navFilter) { setQ(navFilter); setFlt("All"); setAflt("All"); } }, [navFilter]);
   var d = data.projects;
   var sts = ["All"].concat(Array.from(new Set(d.map(function(p) { return p.st; }))));
 
@@ -995,7 +998,7 @@ function HowToPage() {
   );
 }
 
-function CashFlow({ data }) {
+function CashFlow({ data, onSel }) {
   var [siteFilter, setSiteFilter] = useState("All");
 
   var today = new Date();
@@ -1127,7 +1130,15 @@ function CashFlow({ data }) {
                 React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, "Q" + (wk.quarter + 1)),
                 React.createElement("td", { style: { padding: "8px 10px", fontSize: 11, fontWeight: 700, color: wk.forecast > avgWeekly * 1.5 ? T.red : wk.forecast > 0 ? T.amb : T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, wk.forecast > 0 ? fF(wk.forecast) : "\u2014"),
                 React.createElement("td", { style: { padding: "8px 10px", fontSize: 10, fontWeight: 600, color: T.blu, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, fF(cum)),
-                React.createElement("td", { style: { padding: "8px 10px", fontSize: 9, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, topP.map(function(tp) { return tp.name + " (" + fmt(tp.amount) + ")"; }).join(", ") || "\u2014")
+                React.createElement("td", { style: { padding: "8px 10px", fontSize: 9, color: T.tx2, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } },
+                  topP.length > 0 ? topP.map(function(tp, tpi) {
+                    var proj = data.projects.find(function(pr) { return pr.n === tp.name; });
+                    return React.createElement("span", { key: tpi },
+                      React.createElement("span", { onClick: function(e) { e.stopPropagation(); if (onSel && proj) onSel(proj); }, style: { color: T.blu, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none" } }, tp.name + " (" + fmt(tp.amount) + ")"),
+                      tpi < topP.length - 1 ? ", " : ""
+                    );
+                  }) : "\u2014"
+                )
               );
             })}
           </tbody>
@@ -1137,7 +1148,7 @@ function CashFlow({ data }) {
   );
 }
 
-function Reconciliation({ data }) {
+function Reconciliation({ data, onSel }) {
   var [showVendors, setShowVendors] = useState(null);
   var [filter, setFilter] = useState("all");
 
@@ -1225,7 +1236,7 @@ function Reconciliation({ data }) {
                   onMouseEnter: function(e) { e.currentTarget.style.background = T.bg3; },
                   onMouseLeave: function(e) { e.currentTarget.style.background = "transparent"; }
                 },
-                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } }, r.p.id),
+                  React.createElement("td", { style: { padding: "9px 10px", fontSize: 10, color: T.blu, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff, cursor: "pointer", textDecoration: "underline" }, onClick: function(e) { e.stopPropagation(); if (onSel) onSel(r.p); } }, r.p.id),
                   React.createElement("td", { style: { padding: "9px 10px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "30", fontFamily: T.ff } },
                     r.p.n, r.vendors.length > 0 ? React.createElement("span", { style: { marginLeft: 6, fontSize: 9, color: T.blu } }, r.vendors.length + " vendor" + (r.vendors.length > 1 ? "s" : "") + " " + (showVendors === r.p.id ? "\u25B2" : "\u25BC")) : null
                   ),
@@ -1260,7 +1271,7 @@ function Reconciliation({ data }) {
   );
 }
 
-function SpendTracker({ data, onUpdate }) {
+function SpendTracker({ data, onUpdate, onSel }) {
   var [selProj, setSelProj] = useState("all");
   var [showForm, setShowForm] = useState(false);
   var [nv, setNv] = useState({ vendor: "", desc: "", amount: "", date: "", po: "", inv: "", projectId: "", hasReceipt: false, receiptUrl: "" });
@@ -1439,7 +1450,7 @@ function SpendTracker({ data, onUpdate }) {
               return (
                 <tr key={e.id} onMouseEnter={function(ev) { ev.currentTarget.style.background = T.bg3; }} onMouseLeave={function(ev) { ev.currentTarget.style.background = "transparent"; }}>
                   <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.date}</td>
-                  <td style={{ padding: "8px 12px", fontSize: 10, color: T.blu, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{proj ? proj.n : e.projectId}</td>
+                  <td onClick={function() { if (onSel && proj) onSel(proj); }} style={{ padding: "8px 12px", fontSize: 10, color: T.blu, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none" }}>{proj ? proj.n : e.projectId}</td>
                   <td style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.vendor}</td>
                   <td style={{ padding: "8px 12px", fontSize: 10, color: T.tx2, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.desc}</td>
                   <td style={{ padding: "8px 12px", fontSize: 10, color: T.dim, borderBottom: "1px solid " + T.bdr + "55", fontFamily: T.ff }}>{e.po || "--"}</td>
@@ -1469,7 +1480,7 @@ function SpendTracker({ data, onUpdate }) {
   );
 }
 
-function BoardSummary({ data }) {
+function BoardSummary({ data, onSel, onNav }) {
   var d = data.projects;
   var expenses = data.expenses || [];
   var totalBudget = d.reduce(function(s, p) { return s + p.b; }, 0);
@@ -1591,7 +1602,8 @@ function BoardSummary({ data }) {
             <tbody>
               {drill.projects.map(function(p) {
                 var stCfg = SC[p.st] || SC.Draft;
-                return React.createElement("tr", { key: p.id },
+                return React.createElement("tr", { key: p.id, onClick: function() { if (onSel) onSel(p); }, style: { cursor: "pointer" },
+                  onMouseEnter: function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }, onMouseLeave: function(ev) { ev.currentTarget.style.background = "transparent"; } },
                   React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.dim, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.id),
                   React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, fontWeight: 600, color: T.tx, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.n),
                   React.createElement("td", { style: { padding: "6px 10px", fontSize: 10, color: T.tx2, fontFamily: T.ff, borderBottom: "1px solid " + T.bdr + "30" } }, p.s),
@@ -1762,7 +1774,7 @@ function BoardSummary({ data }) {
           </thead>
           <tbody>
             {siteRows.map(function(r) {
-              return React.createElement("tr", { key: r.site, onClick: function() { openDrill(r.site + " Projects", d.filter(function(p) { return p.s === r.site; })); }, style: { cursor: "pointer" },
+              return React.createElement("tr", { key: r.site, onClick: function() { openDrill(r.site + " Projects", d.filter(function(p) { return p.s === r.site; })); }, onDoubleClick: function() { if (onNav) onNav("pipeline", r.site); }, style: { cursor: "pointer" },
                 onMouseEnter: function(ev) { ev.currentTarget.style.background = T.bg3 + "60"; }, onMouseLeave: function(ev) { ev.currentTarget.style.background = "transparent"; } },
                 React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, fontWeight: 600, color: T.tx, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff } }, r.site),
                 React.createElement("td", { style: { padding: "9px 12px", fontSize: 11, color: T.dim, borderBottom: "1px solid " + T.bdr + "40", fontFamily: T.ff, textAlign: "right" } }, r.count),
@@ -1852,6 +1864,17 @@ function App() {
   var [loading, setLoading] = useState(true);
   var [ss, setSs] = useState(null);
   var [curUser, setCurUser] = useState(USERS[0]);
+  var [navFilter, setNavFilter] = useState("");
+
+  function handleNav(targetView, filter) {
+    setView(targetView);
+    setSel(null);
+    if (filter) { setNavFilter(filter); } else { setNavFilter(""); }
+  }
+
+  function handleSelProject(project) {
+    setSel(project);
+  }
 
   useEffect(function() {
     (async function() {
@@ -2014,7 +2037,7 @@ function App() {
           {navItems.map(function(item) {
             var Icon = item.i;
             return (
-              <button key={item.id} onClick={function() { setView(item.id); setSel(null); }}
+              <button key={item.id} onClick={function() { setView(item.id); setSel(null); setNavFilter(""); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px",
                   border: "none", borderRadius: 5,
@@ -2058,12 +2081,12 @@ function App() {
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", position: "relative" }}>
-        {view === "board" && <BoardSummary data={data} />}
-        {view === "dashboard" && <Dashboard data={data} />}
-        {view === "pipeline" && <Pipeline data={data} onSel={setSel} />}
-        {view === "spend" && <SpendTracker data={data} onUpdate={persist} />}
-        {view === "recon" && <Reconciliation data={data} />}
-        {view === "cashflow" && <CashFlow data={data} />}
+        {view === "board" && <BoardSummary data={data} onSel={handleSelProject} onNav={handleNav} />}
+        {view === "dashboard" && <Dashboard data={data} onSel={handleSelProject} onNav={handleNav} />}
+        {view === "pipeline" && <Pipeline data={data} onSel={setSel} navFilter={navFilter} />}
+        {view === "spend" && <SpendTracker data={data} onUpdate={persist} onSel={handleSelProject} />}
+        {view === "recon" && <Reconciliation data={data} onSel={handleSelProject} />}
+        {view === "cashflow" && <CashFlow data={data} onSel={handleSelProject} />}
         {view === "approvals" && <Approvals data={data} onAction={handleAction} />}
         {view === "submit" && <SubmitForm onSubmit={handleSubmit} />}
         {view === "exports" && <ExportPage data={data} />}
